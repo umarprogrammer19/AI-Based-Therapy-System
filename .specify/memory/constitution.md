@@ -1,55 +1,67 @@
-# [PROJECT_NAME] Constitution
-<!-- Example: Spec Constitution, TaskFlow Constitution, etc. -->
+<!-- Sync Impact Report:
+Version change: N/A (initial) → 1.0.0
+Added sections: Project Mission, Architecture Standards, Knowledge Firewall Rule
+Removed sections: None (completely replaced)
+Templates requiring updates: ✅ Updated
+Follow-up TODOs: None
+-->
+# Ketamine Therapy AI Constitution
 
 ## Core Principles
 
-### [PRINCIPLE_1_NAME]
-<!-- Example: I. Library-First -->
-[PRINCIPLE_1_DESCRIPTION]
-<!-- Example: Every feature starts as a standalone library; Libraries must be self-contained, independently testable, documented; Clear purpose required - no organizational-only libraries -->
+### Project Mission
+Build a specialized Ketamine Therapy AI that learns ONLY from approved uploads. CRITICAL: Strict separation of "Ketamine Knowledge" (Vectors) and "General Data" (Chats/Logs).
+<!-- Rationale: Ensures the AI system remains focused on ketamine therapy applications while maintaining data integrity and preventing contamination between knowledge domains -->
 
-### [PRINCIPLE_2_NAME]
-<!-- Example: II. CLI Interface -->
-[PRINCIPLE_2_DESCRIPTION]
-<!-- Example: Every library exposes functionality via CLI; Text in/out protocol: stdin/args → stdout, errors → stderr; Support JSON + human-readable formats -->
+### Architecture Standards
+Structure: Monorepo (frontend/ Next.js 16+, backend/ FastAPI). Database: Neon Serverless PostgreSQL with pgvector for the Knowledge Store and SQLModel for structured data. AI Engine: Mistral (via Hugging Face API) for Reasoning & Classification, and Hugging Face (sentence-transformers) for Vectors.
+<!-- Rationale: Modern, scalable architecture that supports both the knowledge base and interactive chat capabilities while maintaining separation of concerns -->
 
-### [PRINCIPLE_3_NAME]
-<!-- Example: III. Test-First (NON-NEGOTIABLE) -->
-[PRINCIPLE_3_DESCRIPTION]
-<!-- Example: TDD mandatory: Tests written → User approved → Tests fail → Then implement; Red-Green-Refactor cycle strictly enforced -->
+### Knowledge Firewall Rule
+Ingestion: Every uploaded file MUST be classified by AI. If "Ketamine Related" -> Chunk & Embed into vectors_ketamine. If "Not Related" -> Log metadata ONLY. DO NOT VECTORIZE. Retrieval: Chat interactions must only access the ketamine knowledge vectors when relevant to ketamine therapy topics.
+<!-- Rationale: Maintains the integrity of the knowledge base by preventing irrelevant data from polluting the vector space and ensures compliance with the focused mission -->
 
-### [PRINCIPLE_4_NAME]
-<!-- Example: IV. Integration Testing -->
-[PRINCIPLE_4_DESCRIPTION]
-<!-- Example: Focus areas requiring integration tests: New library contract tests, Contract changes, Inter-service communication, Shared schemas -->
+### Data Security and Compliance
+All patient-related data and therapy information must comply with healthcare regulations (HIPAA, etc.). Encryption at rest and in transit for all sensitive data. Access controls must be role-based with audit logging for all data access.
+<!-- Rationale: Healthcare applications require strict compliance with privacy regulations and patient confidentiality -->
 
-### [PRINCIPLE_5_NAME]
-<!-- Example: V. Observability, VI. Versioning & Breaking Changes, VII. Simplicity -->
-[PRINCIPLE_5_DESCRIPTION]
-<!-- Example: Text I/O ensures debuggability; Structured logging required; Or: MAJOR.MINOR.BUILD format; Or: Start simple, YAGNI principles -->
+### Quality Assurance and Validation
+All AI responses related to ketamine therapy must be validated against authoritative medical sources. Implement safety checks to prevent inappropriate medical advice. Maintain confidence scores for all responses with fallback procedures for low-confidence queries.
+<!-- Rationale: Medical AI applications require high reliability and safety measures to protect patients -->
 
-### [PRINCIPLE_6_NAME]
+## Additional Constraints
 
+### Technology Stack Requirements
+- Frontend: Next.js 16+ with TypeScript
+- Backend: FastAPI with Python 3.10+
+- Database: Neon Serverless PostgreSQL with pgvector extension
+- AI Services: Hugging Face API for LLM and embeddings
+- Authentication: OAuth 2.0 or similar secure authentication mechanism
+- Containerization: Docker for consistent deployments
 
-[PRINCIPLE__DESCRIPTION]
+### Performance Standards
+- Response time: <2 seconds for typical queries
+- Availability: 99.9% uptime for production systems
+- Scalability: Support for concurrent users with auto-scaling capability
+- Vector search performance: <500ms for similarity searches
 
-## [SECTION_2_NAME]
-<!-- Example: Additional Constraints, Security Requirements, Performance Standards, etc. -->
+## Development Workflow
 
-[SECTION_2_CONTENT]
-<!-- Example: Technology stack requirements, compliance standards, deployment policies, etc. -->
+### Code Quality Standards
+- All code must be peer-reviewed before merging
+- Unit tests covering >80% of codebase
+- Integration tests for all API endpoints
+- Static analysis and linting required before merge
+- Documentation required for all public interfaces
 
-## [SECTION_3_NAME]
-<!-- Example: Development Workflow, Review Process, Quality Gates, etc. -->
-
-[SECTION_3_CONTENT]
-<!-- Example: Code review requirements, testing gates, deployment approval process, etc. -->
+### Data Pipeline Requirements
+- File upload validation and sanitization
+- Automated classification of incoming documents
+- Audit trail for all data processing steps
+- Backup and recovery procedures for vector databases
 
 ## Governance
-<!-- Example: Constitution supersedes all other practices; Amendments require documentation, approval, migration plan -->
 
-[GOVERNANCE_RULES]
-<!-- Example: All PRs/reviews must verify compliance; Complexity must be justified; Use [GUIDANCE_FILE] for runtime development guidance -->
+The Ketamine Therapy AI Constitution serves as the governing document for all development activities. All team members must comply with these principles. Amendments require documentation of changes, approval from project leadership, and a migration plan for existing implementations. All pull requests and code reviews must verify compliance with these constitutional principles. Use the project documentation for detailed runtime development guidance.
 
-**Version**: [CONSTITUTION_VERSION] | **Ratified**: [RATIFICATION_DATE] | **Last Amended**: [LAST_AMENDED_DATE]
-<!-- Example: Version: 2.1.1 | Ratified: 2025-06-13 | Last Amended: 2025-07-16 -->
+**Version**: 1.0.0 | **Ratified**: 2026-01-13 | **Last Amended**: 2026-01-13

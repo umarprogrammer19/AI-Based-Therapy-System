@@ -1,0 +1,33 @@
+from pydantic_settings import Settings
+import os
+from typing import Optional
+
+
+class Settings(Settings):
+    """
+    Application settings loaded from environment variables.
+    """
+    # Database settings
+    database_url: str = os.getenv("DATABASE_URL", "postgresql+asyncpg://user:password@localhost/backend_db")
+
+    # API settings
+    api_v1_prefix: str = "/api/v1"
+    debug: bool = os.getenv("DEBUG", "False").lower() == "true"
+    project_name: str = "Backend Foundation API"
+    version: str = "0.1.0"
+    allowed_hosts: str = os.getenv("ALLOWED_HOSTS", "*")
+
+    # Hugging Face settings
+    hugging_face_api_key: Optional[str] = os.getenv("HUGGING_FACE_API_KEY")
+
+    # API Configuration
+    hugging_face_api_url: str = os.getenv("HUGGING_FACE_API_URL", "https://api-inference.huggingface.co")
+
+    # Security settings
+    secret_key: str = os.getenv("SECRET_KEY", "dev-secret-key-change-in-production")
+    algorithm: str = "HS256"
+    access_token_expire_minutes: int = 30
+
+
+# Create a single instance of settings
+settings = Settings()

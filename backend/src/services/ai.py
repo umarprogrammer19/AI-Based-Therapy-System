@@ -1,6 +1,7 @@
 from typing import Dict, Any, List
 import httpx
 import asyncio
+import json
 from ..config.settings import settings
 from transformers import pipeline
 import torch
@@ -156,6 +157,174 @@ class AIService:
 
         except Exception as e:
             raise ValueError(f"Failed to generate embeddings: {str(e)}")
+
+    async def generate_query_embedding(self, query_text: str) -> List[float]:
+        """
+        Generate embedding for a query text using Hugging Face models.
+
+        Args:
+            query_text: The query text to embed
+
+        Returns:
+            Embedding vector as a list of floats
+        """
+        if not self.hf_token:
+            raise ValueError("Hugging Face API key not configured")
+
+        if not query_text or not query_text.strip():
+            return [0.0] * 384  # Return zero vector for empty query
+
+        try:
+            # Use the same embedding pipeline as for document chunks
+            embedding_pipeline = pipeline(
+                "feature-extraction",
+                model="sentence-transformers/all-MiniLM-L6-v2",
+                device=0 if torch.cuda.is_available() else -1,
+                token=self.hf_token
+            )
+
+            # Generate embedding for the query
+            embedding = embedding_pipeline(query_text)
+
+            if not embedding or len(embedding) == 0:
+                # Use a zero vector if embedding fails
+                return [0.0] * 384
+
+            # Convert to list of floats and take mean across sequence dimension
+            import numpy as np
+            avg_embedding = np.mean(embedding[0], axis=0).tolist()
+            return avg_embedding
+
+        except Exception as e:
+            raise ValueError(f"Failed to generate query embedding: {str(e)}")
+
+    async def generate_response_with_context(self, query: str, context_chunks: List[Dict],
+                                           system_prompt: str = None) -> Dict[str, Any]:
+        """
+        Generate a response to a query using provided context chunks.
+
+        Args:
+            query: The user's query
+            context_chunks: List of context chunks with text and metadata
+            system_prompt: Optional system prompt to guide the response
+
+        Returns:
+            Dictionary containing the response, confidence score, and metadata
+        """
+        if not self.hf_token:
+            raise ValueError("Hugging Face API key not configured")
+
+        # Build the system prompt if not provided
+        if system_prompt is None:
+            system_prompt = """You are an AI assistant specialized in ketamine therapy.
+            Answer the user's question based on the provided context. If the answer is not in the context,
+            politely say you don't know and suggest consulting a healthcare professional."""
+
+        # Build the context from the retrieved chunks
+        context_text = "\n\n".join([
+            f"Context {i+1}: {chunk.get('text', '')}"
+            for i, chunk in enumerate(context_chunks)
+        ])
+
+        # Construct the full prompt
+        full_prompt = f"""
+        <s>[INST] <<SYS>>
+        {system_prompt}
+        <</SYS>>
+
+        CONTEXT:
+        {context_text}
+
+        QUESTION:
+        {query}
+
+        Please provide a helpful and accurate response based on the context provided.
+        [/INST]
+        """
+
+        try:
+            # Use Hugging Face Inference API with a suitable model for response generation
+            inference = InferenceApi(
+                repo_id="mistralai/Mistral-7B-Instruct-v0.2",
+                token=self.hf_token
+            )
+
+            result = inference(
+                inputs=full_prompt,
+                parameters={
+                    "max_new_tokens": 500,
+                    "temperature": 0.7,
+                    "top_p": 0.9,
+                    "do_sample": True
+                }
+            )
+
+            # Extract the response text
+            if isinstance(result, list) and len(result) > 0:
+                response_text = result[0]['generated_text']
+            elif isinstance(result, dict) and 'generated_text' in result:
+                response_text = result['generated_text']
+            else:
+                response_text = str(result)
+
+            # Extract just the response part (remove the prompt from the output)
+            if "[/INST]" in response_text:
+                response_text = response_text.split("[/INST]")[-1].strip()
+
+            # Calculate a basic confidence score based on response characteristics
+            confidence = self._calculate_response_confidence(response_text, context_chunks)
+
+            return {
+                "response_text": response_text,
+                "confidence_score": confidence,
+                "metadata": {
+                    "model_used": "mistralai/Mistral-7B-Instruct-v0.2",
+                    "context_chunks_count": len(context_chunks),
+                    "system_prompt_used": system_prompt[:100] + "..." if len(system_prompt) > 100 else system_prompt
+                }
+            }
+        except Exception as e:
+            raise ValueError(f"Failed to generate response: {str(e)}")
+
+    def _calculate_response_confidence(self, response_text: str, context_chunks: List[Dict]) -> float:
+        """
+        Calculate a basic confidence score based on response characteristics.
+
+        Args:
+            response_text: The generated response text
+            context_chunks: The context chunks used to generate the response
+
+        Returns:
+            Confidence score between 0.0 and 1.0
+        """
+        if not response_text or not response_text.strip():
+            return 0.0
+
+        # Check if response contains uncertainty indicators
+        uncertainty_indicators = [
+            "I don't know", "I'm not sure", "I cannot determine",
+            "no information", "not provided", "not mentioned"
+        ]
+
+        response_lower = response_text.lower()
+        has_uncertainty = any(indicator.lower() in response_lower for indicator in uncertainty_indicators)
+
+        if has_uncertainty:
+            return 0.3  # Low confidence if response indicates uncertainty
+
+        # Calculate confidence based on context usage
+        if len(context_chunks) == 0:
+            return 0.2  # Very low confidence if no context was provided
+
+        # Higher confidence with more context chunks (but cap it)
+        context_based_confidence = min(0.3 + (len(context_chunks) * 0.15), 0.8)
+
+        # Boost confidence if response seems substantive
+        word_count = len(response_text.split())
+        length_bonus = min(word_count / 100 * 0.2, 0.2)  # Up to 0.2 bonus for longer responses
+
+        confidence = min(context_based_confidence + length_bonus, 1.0)
+        return confidence
 
 
 # Global instance

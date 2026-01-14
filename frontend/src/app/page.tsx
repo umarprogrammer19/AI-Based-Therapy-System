@@ -1,65 +1,135 @@
-import Image from "next/image";
+'use client';
+
+import { useChat } from 'ai/react';
+import { useRef, useEffect } from 'react';
+import { Send } from 'lucide-react';
+import { ChatBubble } from '../components/chat-bubble';
 
 export default function Home() {
+  const { messages, input, handleInputChange, handleSubmit, isLoading } = useChat({
+    api: '/api/chat',
+    headers: {
+      'Content-Type': 'application/json',
+    },
+    body: {
+      user_id: 'web_user',
+    },
+    onResponse: (response) => {
+      // Handle the response if needed
+      console.log('Response received:', response);
+    },
+    onError: (error) => {
+      console.error('Chat error:', error);
+      alert('An error occurred while processing your request.');
+    }
+  });
+
+  const messagesEndRef = useRef<HTMLDivElement>(null);
+
+  const scrollToBottom = () => {
+    messagesEndRef.current?.scrollIntoView({ behavior: 'smooth' });
+  };
+
+  useEffect(() => {
+    scrollToBottom();
+  }, [messages]);
+
+  const onSubmit = (e: React.FormEvent<HTMLFormElement>) => {
+    e.preventDefault();
+    handleSubmit(e);
+  };
+
   return (
-    <div className="flex min-h-screen items-center justify-center bg-zinc-50 font-sans dark:bg-black">
-      <main className="flex min-h-screen w-full max-w-3xl flex-col items-center justify-between py-32 px-16 bg-white dark:bg-black sm:items-start">
-        <Image
-          className="dark:invert"
-          src="/next.svg"
-          alt="Next.js logo"
-          width={100}
-          height={20}
-          priority
-        />
-        <div className="flex flex-col items-center gap-6 text-center sm:items-start sm:text-left">
-          <h1 className="max-w-xs text-3xl font-semibold leading-10 tracking-tight text-black dark:text-zinc-50">
-            To get started, edit the page.tsx file.
-          </h1>
-          <p className="max-w-md text-lg leading-8 text-zinc-600 dark:text-zinc-400">
-            Looking for a starting point or more instructions? Head over to{" "}
-            <a
-              href="https://vercel.com/templates?framework=next.js&utm_source=create-next-app&utm_medium=appdir-template-tw&utm_campaign=create-next-app"
-              className="font-medium text-zinc-950 dark:text-zinc-50"
-            >
-              Templates
-            </a>{" "}
-            or the{" "}
-            <a
-              href="https://nextjs.org/learn?utm_source=create-next-app&utm_medium=appdir-template-tw&utm_campaign=create-next-app"
-              className="font-medium text-zinc-950 dark:text-zinc-50"
-            >
-              Learning
-            </a>{" "}
-            center.
-          </p>
+    <div className="flex flex-col h-screen bg-gray-50">
+      {/* Header */}
+      <header className="bg-white shadow-sm py-4 px-6 flex justify-between items-center">
+        <h1 className="text-xl font-bold text-gray-800">Ketamine Therapy AI</h1>
+        <a
+          href="/admin"
+          className="text-blue-600 hover:text-blue-800 text-sm font-medium transition-colors"
+        >
+          Admin
+        </a>
+      </header>
+
+      {/* Chat Container */}
+      <div className="flex-1 overflow-y-auto p-4 pb-20">
+        <div className="max-w-3xl mx-auto space-y-6">
+          {messages.length === 0 ? (
+            <div className="text-center py-10">
+              <div className="mx-auto bg-gray-100 rounded-full p-3 w-12 h-12 flex items-center justify-center">
+                <svg xmlns="http://www.w3.org/2000/svg" width="24" height="24" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2" strokeLinecap="round" strokeLinejoin="round" className="lucide lucide-bot-message-square text-gray-400">
+                  <path d="M12 6V2H8"/>
+                  <path d="m8 18-2 3v1H3v-1l2-3"/>
+                  <path d="M16 2h3a1 1 0 0 1 1 1v1l-2 3"/>
+                  <rect x="2" y="6" width="20" height="12" rx="2"/>
+                  <path d="M8 12h.01"/>
+                  <path d="M12 12h.01"/>
+                  <path d="M16 12h.01"/>
+                </svg>
+              </div>
+              <h2 className="mt-4 text-lg font-medium text-gray-900">
+                Welcome to Ketamine Therapy AI
+              </h2>
+              <p className="mt-2 text-gray-500">
+                Ask me anything about ketamine therapy, its benefits, risks, and applications.
+              </p>
+            </div>
+          ) : (
+            messages.map((message) => (
+              <ChatBubble
+                key={message.id}
+                variant={message.role === 'user' ? 'user' : 'ai'}
+              >
+                {message.content}
+              </ChatBubble>
+            ))
+          )}
+
+          {/* Loading indicator when AI is thinking */}
+          {isLoading && (
+            <ChatBubble variant="ai">
+              <div className="flex items-center gap-2">
+                <div className="flex space-x-1">
+                  <div className="h-2 w-2 bg-gray-500 rounded-full animate-bounce"></div>
+                  <div className="h-2 w-2 bg-gray-500 rounded-full animate-bounce delay-75"></div>
+                  <div className="h-2 w-2 bg-gray-500 rounded-full animate-bounce delay-150"></div>
+                </div>
+              </div>
+            </ChatBubble>
+          )}
+
+          <div ref={messagesEndRef} />
         </div>
-        <div className="flex flex-col gap-4 text-base font-medium sm:flex-row">
-          <a
-            className="flex h-12 w-full items-center justify-center gap-2 rounded-full bg-foreground px-5 text-background transition-colors hover:bg-[#383838] dark:hover:bg-[#ccc] md:w-[158px]"
-            href="https://vercel.com/new?utm_source=create-next-app&utm_medium=appdir-template-tw&utm_campaign=create-next-app"
-            target="_blank"
-            rel="noopener noreferrer"
+      </div>
+
+      {/* Input Area - Fixed at the bottom */}
+      <div className="fixed bottom-0 left-0 right-0 bg-white border-t border-gray-200 py-4 px-4">
+        <form
+          onSubmit={onSubmit}
+          className="max-w-3xl mx-auto flex gap-2"
+        >
+          <input
+            value={input}
+            onChange={handleInputChange}
+            placeholder="Ask about ketamine therapy..."
+            className="flex-1 border border-gray-300 rounded-full px-4 py-3 focus:outline-none focus:ring-2 focus:ring-blue-500 focus:border-transparent"
+            disabled={isLoading}
+          />
+          <button
+            type="submit"
+            disabled={isLoading || !input.trim()}
+            className="bg-blue-500 text-white rounded-full p-3 hover:bg-blue-600 focus:outline-none focus:ring-2 focus:ring-blue-500 focus:ring-offset-2 disabled:opacity-50 disabled:cursor-not-allowed transition-colors"
           >
-            <Image
-              className="dark:invert"
-              src="/vercel.svg"
-              alt="Vercel logomark"
-              width={16}
-              height={16}
-            />
-            Deploy Now
-          </a>
-          <a
-            className="flex h-12 w-full items-center justify-center rounded-full border border-solid border-black/[.08] px-5 transition-colors hover:border-transparent hover:bg-black/[.04] dark:border-white/[.145] dark:hover:bg-[#1a1a1a] md:w-[158px]"
-            href="https://nextjs.org/docs?utm_source=create-next-app&utm_medium=appdir-template-tw&utm_campaign=create-next-app"
-            target="_blank"
-            rel="noopener noreferrer"
-          >
-            Documentation
-          </a>
+            <Send className="h-5 w-5" />
+          </button>
+        </form>
+
+        {/* Disclaimer Footer */}
+        <div className="max-w-3xl mx-auto mt-3 text-center text-xs text-gray-500">
+          This AI is for educational purposes only. It is not a substitute for professional medical advice.
         </div>
-      </main>
+      </div>
     </div>
   );
 }

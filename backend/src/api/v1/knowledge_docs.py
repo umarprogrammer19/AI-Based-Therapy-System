@@ -8,8 +8,7 @@ from ...models.knowledge_doc import (
     KnowledgeDocUpdate
 )
 from ...services.knowledge_service import knowledge_doc_service
-from ...config.database import get_db_session
-from ...api.deps import get_db_session as get_session
+from ...api.deps import get_db_session
 
 
 router = APIRouter()
@@ -18,7 +17,7 @@ router = APIRouter()
 @router.post("/", response_model=KnowledgeDocRead)
 def create_knowledge_doc(
     *,
-    session: Session = Depends(get_session),
+    session: Session = Depends(get_db_session),
     knowledge_doc: KnowledgeDocCreate
 ):
     """
@@ -33,7 +32,7 @@ def create_knowledge_doc(
 @router.get("/{knowledge_doc_id}", response_model=KnowledgeDocRead)
 def get_knowledge_doc(
     *,
-    session: Session = Depends(get_session),
+    session: Session = Depends(get_db_session),
     knowledge_doc_id: str  # Using str to accommodate UUID parsing
 ):
     """
@@ -55,7 +54,7 @@ def get_knowledge_doc(
 @router.get("/", response_model=List[KnowledgeDocRead])
 def get_knowledge_docs(
     *,
-    session: Session = Depends(get_session),
+    session: Session = Depends(get_db_session),
     limit: int = 100,
     offset: int = 0,
     sort: str = None
@@ -84,7 +83,7 @@ def get_knowledge_docs(
 @router.put("/{knowledge_doc_id}", response_model=KnowledgeDocRead)
 def update_knowledge_doc(
     *,
-    session: Session = Depends(get_session),
+    session: Session = Depends(get_db_session),
     knowledge_doc_id: str,  # Using str to accommodate UUID parsing
     knowledge_doc_update: KnowledgeDocUpdate
 ):
@@ -109,7 +108,7 @@ def update_knowledge_doc(
 @router.delete("/{knowledge_doc_id}")
 def delete_knowledge_doc(
     *,
-    session: Session = Depends(get_session),
+    session: Session = Depends(get_db_session),
     knowledge_doc_id: str  # Using str to accommodate UUID parsing
 ):
     """

@@ -4,7 +4,7 @@ from uuid import UUID, uuid4
 from typing import Optional, List
 import json
 from pgvector.sqlalchemy import Vector
-from sqlalchemy import Column
+from sqlalchemy import Column, JSON
 from .knowledge_doc import KnowledgeDoc
 
 
@@ -16,7 +16,7 @@ class VectorChunkBase(SQLModel):
     text_content: str = Field(..., description="The actual text content of the chunk", min_length=1)
     embedding: List[float] = Field(..., sa_column=Column(Vector(384)), description="384-dimensional vector embedding")
     chunk_index: int = Field(..., description="Order of the chunk within the original document")
-    chunk_metadata: Optional[dict] = Field(None, description="Metadata about the specific chunk", sa_column_kwargs={"server_default": "NULL"})
+    chunk_metadata: Optional[dict] = Field(None, description="Metadata about the specific chunk", sa_column=Column(JSON))
     similarity_score: Optional[float] = Field(None, description="Cached similarity scores when applicable")
 
 
@@ -30,11 +30,6 @@ class VectorChunk(VectorChunkBase, table=True):
     created_at: datetime = Field(default_factory=datetime.utcnow, description="Record creation timestamp")
     updated_at: datetime = Field(default_factory=datetime.utcnow, description="Record update timestamp")
 
-    # Update the updated_at field automatically
-    def __setattr__(self, name, value):
-        if name == 'updated_at':
-            super().__setattr__('updated_at', datetime.utcnow())
-        super().__setattr__(name, value)
 
 
 class VectorChunkCreate(VectorChunkBase):

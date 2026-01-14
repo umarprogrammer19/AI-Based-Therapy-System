@@ -10,8 +10,7 @@ from ...models.vector_chunk import (
     VectorChunkUpdate
 )
 from ...services.vector_service import vector_chunk_service
-from ...config.database import get_db_session
-from ...api.deps import get_db_session as get_session
+from ...api.deps import get_db_session
 
 
 router = APIRouter()
@@ -36,7 +35,7 @@ class VectorChunkWithSimilarity(VectorChunkRead):
 @router.post("/", response_model=VectorChunkRead)
 def create_vector_chunk(
     *,
-    session: Session = Depends(get_session),
+    session: Session = Depends(get_db_session),
     vector_chunk: VectorChunkCreate
 ):
     """
@@ -51,7 +50,7 @@ def create_vector_chunk(
 @router.get("/{vector_chunk_id}", response_model=VectorChunkRead)
 def get_vector_chunk(
     *,
-    session: Session = Depends(get_session),
+    session: Session = Depends(get_db_session),
     vector_chunk_id: str  # Using str to accommodate UUID parsing
 ):
     """
@@ -71,7 +70,7 @@ def get_vector_chunk(
 @router.get("/", response_model=List[VectorChunkRead])
 def get_vector_chunks(
     *,
-    session: Session = Depends(get_session),
+    session: Session = Depends(get_db_session),
     knowledge_doc_id: Optional[str] = None,
     limit: int = 100,
     offset: int = 0
@@ -97,7 +96,7 @@ def get_vector_chunks(
 @router.put("/{vector_chunk_id}", response_model=VectorChunkRead)
 def update_vector_chunk(
     *,
-    session: Session = Depends(get_session),
+    session: Session = Depends(get_db_session),
     vector_chunk_id: str,  # Using str to accommodate UUID parsing
     vector_chunk_update: VectorChunkUpdate
 ):
@@ -120,7 +119,7 @@ def update_vector_chunk(
 @router.delete("/{vector_chunk_id}")
 def delete_vector_chunk(
     *,
-    session: Session = Depends(get_session),
+    session: Session = Depends(get_db_session),
     vector_chunk_id: str  # Using str to accommodate UUID parsing
 ):
     """
@@ -140,7 +139,7 @@ def delete_vector_chunk(
 @router.post("/search", response_model=List[VectorChunkWithSimilarity])
 def search_vector_chunks(
     *,
-    session: Session = Depends(get_session),
+    session: Session = Depends(get_db_session),
     search_request: VectorSearchRequest
 ):
     """

@@ -48,14 +48,13 @@ def run_migrations_offline():
     context.configure(
         url=url,
         target_metadata=target_metadata,
-        dialect_opts={"paramstyle": "named"},
         compare_type=True,
         compare_server_default=True,
-        transactional_ddl=False,  # Disable transactions for offline mode
+        dialect_opts={"paramstyle": "named"},
     )
 
-    # In offline mode, don't use transactions
-    context.run_migrations()
+    with context.begin_transaction():
+        context.run_migrations()
 
 
 def run_migrations_online():
@@ -80,10 +79,16 @@ def run_migrations_online():
             context.run_migrations()
 
 
-# For revision --autogenerate, we want to use offline mode
-# The autogenerate flag should be available in cmd_opts
-if context.config.cmd_opts and hasattr(context.config.cmd_opts, 'autogenerate') and context.config.cmd_opts.autogenerate:
-    # When autogenerating, use offline mode
+# Check if we're in autogenerate mode (during revision generation)
+# For autogenerate, we need to use offline mode since we don't have a DB connection
+import argparse
+import sys
+
+# Determine the command being run by inspecting sys.argv
+is_revision_command = len(sys.argv) > 1 and 'revision' in sys.argv
+
+if is_revision_command and '--autogenerate' in sys.argv:
+    # If it's a revision command with autogenerate, use offline mode
     run_migrations_offline()
 elif context.is_offline_mode():
     run_migrations_offline()

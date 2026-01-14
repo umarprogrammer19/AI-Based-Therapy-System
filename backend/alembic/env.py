@@ -13,6 +13,7 @@ from src.config.settings import settings
 from src.models.knowledge_doc import KnowledgeDoc
 from src.models.vector_chunk import VectorChunk
 from src.models.audit_log import AuditLog
+from src.models.upload_session import UploadSession
 from sqlmodel import SQLModel
 
 
@@ -29,7 +30,9 @@ if config.config_file_name is not None:
 target_metadata = SQLModel.metadata
 
 # Override the sqlalchemy.url key with our settings
-config.set_main_option('sqlalchemy.url', settings.database_url)
+# Use sync PostgreSQL URL for migrations
+sync_database_url = settings.database_url.replace("+asyncpg", "")
+config.set_main_option('sqlalchemy.url', sync_database_url)
 
 
 def run_migrations_offline():
@@ -80,12 +83,8 @@ def run_migrations_online():
             context.run_migrations()
 
 
-# For revision --autogenerate, we want to use offline mode
-# The autogenerate flag should be available in cmd_opts
-if context.config.cmd_opts and hasattr(context.config.cmd_opts, 'autogenerate') and context.config.cmd_opts.autogenerate:
-    # When autogenerating, use offline mode
-    run_migrations_offline()
-elif context.is_offline_mode():
+# For revision --autogenerate, we need to handle the command properly
+if context.is_offline_mode():
     run_migrations_offline()
 else:
     run_migrations_online()

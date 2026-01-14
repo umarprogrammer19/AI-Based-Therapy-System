@@ -24,11 +24,38 @@ def validate_filename(filename: str) -> bool:
     return True
 
 
-def validate_file_size(file_size: int) -> bool:
+def validate_file_size(file_size: int, max_size: int = 50 * 1024 * 1024) -> bool:  # 50MB default
     """
-    Validate that the file size is non-negative.
+    Validate that the file size is within the allowed limit.
+
+    Args:
+        file_size: Size of the file in bytes
+        max_size: Maximum allowed size in bytes (default 50MB)
+
+    Returns:
+        True if file size is valid, False otherwise
     """
-    return file_size >= 0
+    return 0 <= file_size <= max_size
+
+
+def validate_file_type(content_type: str) -> bool:
+    """
+    Validate that the file type is allowed (PDF or TXT).
+
+    Args:
+        content_type: MIME type of the file
+
+    Returns:
+        True if file type is allowed, False otherwise
+    """
+    allowed_types = {
+        "application/pdf",
+        "text/plain",
+        "text/txt",
+        "application/msword",  # .doc
+        "application/vnd.openxmlformats-officedocument.wordprocessingml.document"  # .docx
+    }
+    return content_type in allowed_types
 
 
 def validate_content_type(content_type: str) -> bool:

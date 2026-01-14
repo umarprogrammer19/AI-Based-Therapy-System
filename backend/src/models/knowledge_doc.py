@@ -4,7 +4,6 @@ from uuid import UUID, uuid4
 from typing import Optional
 import json
 from sqlalchemy import JSON, Column
-from sqlalchemy.schema import FetchedValue
 
 
 class KnowledgeDocBase(SQLModel):
@@ -17,6 +16,11 @@ class KnowledgeDocBase(SQLModel):
     content_type: Optional[str] = Field(None, description="MIME type of the document")
     checksum: Optional[str] = Field(None, description="Hash of the file for integrity checking")
     doc_metadata: Optional[dict] = Field(None, description="Additional document-specific metadata", sa_column=Column(JSON))
+    # Ingestion-specific fields
+    relevant: bool = Field(..., description="Whether document is relevant to ketamine therapy (classification result)")
+    classification_reason: Optional[str] = Field(None, description="Reason for classification decision")
+    processing_status: str = Field(default="uploaded", description="Current status (uploaded, classified, processing, completed, failed, skipped)")
+    error_message: Optional[str] = Field(None, description="Error details if processing failed")
 
 
 class KnowledgeDoc(KnowledgeDocBase, table=True):
@@ -59,3 +63,8 @@ class KnowledgeDocUpdate(SQLModel):
     content_type: Optional[str] = None
     checksum: Optional[str] = None
     doc_metadata: Optional[dict] = None
+    # Ingestion-specific fields
+    relevant: Optional[bool] = None
+    classification_reason: Optional[str] = None
+    processing_status: Optional[str] = None
+    error_message: Optional[str] = None

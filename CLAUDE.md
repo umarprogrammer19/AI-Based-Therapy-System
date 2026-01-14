@@ -208,3 +208,10 @@ Wait for consent; never auto-create ADRs. Group related decisions (stacks, authe
 
 ## Code Standards
 See `.specify/memory/constitution.md` for code quality, testing, performance, security, and architecture principles.
+
+## Active Technologies
+- Python 3.13 (as established in the backend foundation) + FastAPI, SQLModel, Hugging Face API, pgvector, PyPDF2/fitz for PDF processing, python-docx for DOCX processing (002-ingestion-pipeline)
+- Neon Serverless PostgreSQL with pgvector for vector storage, SQLModel for structured data (002-ingestion-pipeline)
+
+## Recent Changes
+- 002-ingestion-pipeline: Added Python 3.13 (as established in the backend foundation) + FastAPI, SQLModel, Hugging Face API, pgvector, PyPDF2/fitz for PDF processing, python-docx for DOCX processing

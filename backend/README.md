@@ -49,7 +49,7 @@ The backend follows a modular architecture:
 ## Setup
 
 ### Prerequisites
-- Python 3.11+
+- Python 3.13+
 - PostgreSQL with pgvector extension
 - uv package manager
 

@@ -1,6 +1,7 @@
-from fastapi import APIRouter, Depends, HTTPException
+from fastapi import APIRouter, Depends, HTTPException, UploadFile, File
 from typing import List
 from sqlmodel import Session
+from uuid import UUID
 from ...models.knowledge_doc import (
     KnowledgeDoc,
     KnowledgeDocCreate,
@@ -9,6 +10,7 @@ from ...models.knowledge_doc import (
 )
 from ...services.knowledge_service import knowledge_doc_service
 from ...api.deps import get_db_session
+from ...services.ingestion import process_uploaded_file
 
 
 router = APIRouter()
@@ -105,6 +107,44 @@ def update_knowledge_doc(
     return updated_knowledge_doc
 
 
+@router.post("/admin/upload", response_model=KnowledgeDocRead)
+def upload_document(
+    *,
+    file: UploadFile = File(...),
+    session: Session = Depends(get_db_session)
+):
+    """
+    Upload a document (PDF/TXT) for processing and classification.
+    The document will be classified as relevant to ketamine therapy or not using AI.
+    """
+    from uuid import UUID
+
+    # Validate file type
+    allowed_types = {"application/pdf", "text/plain", "text/txt"}
+    if file.content_type not in allowed_types:
+        raise HTTPException(
+            status_code=400,
+            detail=f"File type not allowed. Allowed types: {', '.join(allowed_types)}"
+        )
+
+    # Validate file size (max 50MB)
+    max_size = 50 * 1024 * 1024  # 50MB in bytes
+    if hasattr(file, 'size') and file.size and file.size > max_size:
+        raise HTTPException(
+            status_code=400,
+            detail=f"File too large. Maximum size is {max_size} bytes"
+        )
+
+    try:
+        # Process the uploaded file
+        knowledge_doc = process_uploaded_file(file, session)
+        return knowledge_doc
+    except ValueError as e:
+        raise HTTPException(status_code=400, detail=str(e))
+    except Exception as e:
+        raise HTTPException(status_code=500, detail=f"Error processing file: {str(e)}")
+
+
 @router.delete("/{knowledge_doc_id}")
 def delete_knowledge_doc(
     *,
@@ -114,8 +154,6 @@ def delete_knowledge_doc(
     """
     Delete a knowledge document.
     """
-    from uuid import UUID
-
     try:
         uuid_obj = UUID(knowledge_doc_id)
     except ValueError:

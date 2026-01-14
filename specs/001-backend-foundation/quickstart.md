@@ -2,7 +2,7 @@
 
 ## Prerequisites
 
-- Python 3.11+
+- Python 3.13+
 - uv package manager
 - Access to Neon PostgreSQL database with pgvector extension enabled
 

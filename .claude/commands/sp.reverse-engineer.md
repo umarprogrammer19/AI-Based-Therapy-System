@@ -658,7 +658,7 @@ Create implementation plan:
 ## Technology Stack
 
 ### Language & Runtime
-- **Primary**: [Python 3.11]
+- **Primary**: [Python 3.13]
 - **Rationale**: [Inferred - rapid development, rich ecosystem]
 
 ### Web Framework

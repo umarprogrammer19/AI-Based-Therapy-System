@@ -1,0 +1,197 @@
+from fastapi import UploadFile
+from sqlmodel import Session
+from typing import Optional
+import hashlib
+import tempfile
+import os
+from pathlib import Path
+import PyPDF2
+import fitz  # PyMuPDF
+from docx import Document as DocxDocument
+from ..models.knowledge_doc import KnowledgeDoc, KnowledgeDocCreate
+from ..models.vector_chunk import VectorChunk, VectorChunkCreate
+from ..services.ai import ai_service
+from ..services.knowledge_service import knowledge_doc_service
+from ..services.vector_service import vector_service
+
+
+async def process_uploaded_file(file: UploadFile, session: Session) -> KnowledgeDoc:
+    """
+    Process an uploaded file through the ingestion pipeline:
+    1. Extract text from file
+    2. Classify relevance using AI
+    3. If relevant, extract full text, chunk, and embed
+    4. If not relevant, save with relevant=False and stop processing
+    """
+    # Read the file content
+    file_content = await file.read()
+
+    # Calculate checksum
+    checksum = hashlib.md5(file_content).hexdigest()
+
+    # Get file size
+    file_size = len(file_content)
+
+    # Create a temporary file to handle the upload
+    with tempfile.NamedTemporaryFile(delete=False, suffix=Path(file.filename).suffix) as temp_file:
+        temp_file.write(file_content)
+        temp_file_path = temp_file.name
+
+    try:
+        # Extract first 500 characters for classification
+        first_500_chars = await extract_first_n_characters(temp_file_path, file.content_type or "", 500)
+
+        # Classify document relevance
+        classification_result = await ai_service.classify_document_relevance(first_500_chars)
+
+        # Create initial KnowledgeDoc with classification results
+        knowledge_doc_data = KnowledgeDocCreate(
+            filename=file.filename,
+            file_size=file_size,
+            source="admin_upload",
+            content_type=file.content_type,
+            checksum=checksum,
+            relevant=classification_result["is_relevant"],
+            classification_reason=classification_result["reason"],
+            processing_status="classified" if classification_result["is_relevant"] else "skipped"
+        )
+
+        knowledge_doc = knowledge_doc_service.create_knowledge_doc(session, knowledge_doc_data)
+
+        # If document is not relevant, stop processing
+        if not classification_result["is_relevant"]:
+            knowledge_doc = knowledge_doc_service.update_knowledge_doc(
+                session,
+                knowledge_doc.id,
+                {"processing_status": "skipped"}
+            )
+            return knowledge_doc
+
+        # If document is relevant, continue with full processing
+        knowledge_doc = knowledge_doc_service.update_knowledge_doc(
+            session,
+            knowledge_doc.id,
+            {"processing_status": "processing"}
+        )
+
+        # Extract full text content
+        full_text = await extract_full_text(temp_file_path, file.content_type or "")
+
+        # Split text into chunks of ~500 characters
+        text_chunks = chunk_text(full_text, max_chunk_size=500)
+
+        # Generate embeddings for each chunk
+        embeddings = ai_service.generate_embeddings(text_chunks)
+
+        # Create VectorChunk records
+        for idx, (chunk_text, embedding) in enumerate(zip(text_chunks, embeddings)):
+            vector_chunk = VectorChunkCreate(
+                knowledge_doc_id=knowledge_doc.id,
+                text_content=chunk_text,
+                embedding=embedding,
+                chunk_index=idx
+            )
+            vector_service.create_vector_chunk(session, vector_chunk)
+
+        # Update processing status to completed
+        knowledge_doc = knowledge_doc_service.update_knowledge_doc(
+            session,
+            knowledge_doc.id,
+            {"processing_status": "completed"}
+        )
+
+        return knowledge_doc
+
+    finally:
+        # Clean up temporary file
+        if os.path.exists(temp_file_path):
+            os.unlink(temp_file_path)
+
+
+async def extract_first_n_characters(file_path: str, content_type: str, n: int = 500) -> str:
+    """
+    Extract the first n characters from a file based on its type.
+    """
+    full_text = await extract_full_text(file_path, content_type)
+    return full_text[:n]
+
+
+async def extract_full_text(file_path: str, content_type: str) -> str:
+    """
+    Extract full text content from a file based on its type.
+    """
+    if content_type == "application/pdf" or file_path.endswith('.pdf'):
+        # Use PyMuPDF for PDF processing (more reliable than PyPDF2)
+        doc = fitz.open(file_path)
+        text = ""
+        for page in doc:
+            text += page.get_text()
+        doc.close()
+        return text
+
+    elif content_type == "text/plain" or content_type == "text/txt" or file_path.endswith(('.txt', '.text')):
+        # Handle plain text files
+        with open(file_path, 'r', encoding='utf-8') as f:
+            return f.read()
+
+    elif content_type.startswith('application/vnd.openxmlformats-officedocument') or file_path.endswith('.docx'):
+        # Handle DOCX files
+        doc = DocxDocument(file_path)
+        text = '\n'.join([para.text for para in doc.paragraphs])
+        return text
+
+    else:
+        # Default to text file
+        try:
+            with open(file_path, 'r', encoding='utf-8') as f:
+                return f.read()
+        except UnicodeDecodeError:
+            # If UTF-8 fails, try with latin-1
+            with open(file_path, 'r', encoding='latin-1') as f:
+                return f.read()
+
+
+def chunk_text(text: str, max_chunk_size: int = 500) -> list:
+    """
+    Split text into chunks of approximately max_chunk_size characters,
+    trying to respect sentence boundaries when possible.
+    """
+    chunks = []
+    current_pos = 0
+
+    while current_pos < len(text):
+        # Determine the end position for this chunk
+        end_pos = current_pos + max_chunk_size
+
+        # If we're at the end of the text, take whatever is left
+        if end_pos >= len(text):
+            chunks.append(text[current_pos:])
+            break
+
+        # Try to find a sentence boundary near the end of our chunk
+        chunk_end = text.rfind('.', current_pos, end_pos)
+
+        # If no sentence boundary found, try for a paragraph break
+        if chunk_end <= current_pos:
+            chunk_end = text.rfind('\n', current_pos, end_pos)
+
+        # If no paragraph break, try for a space
+        if chunk_end <= current_pos:
+            chunk_end = text.rfind(' ', current_pos, end_pos)
+
+        # If still nothing found, just cut at max_chunk_size
+        if chunk_end <= current_pos:
+            chunk_end = end_pos
+
+        # Add the chunk
+        chunks.append(text[current_pos:chunk_end].strip())
+
+        # Move to the next position
+        current_pos = chunk_end
+
+        # Skip past any whitespace
+        while current_pos < len(text) and text[current_pos].isspace():
+            current_pos += 1
+
+    # Filter out any empty chunks
+    return [chunk for chunk in chunks if chunk.strip()]

@@ -33,13 +33,15 @@ def create_app() -> FastAPI:
         title=settings.project_name,
         version=settings.version,
         debug=settings.debug,
-        lifespan=lifespan
+        lifespan=lifespan,
     )
 
     # Add CORS middleware
     app.add_middleware(
         CORSMiddleware,
-        allow_origins=["*"],  # In production, replace with specific origins
+        allow_origins=[
+            "http://localhost:3000"
+        ], 
         allow_credentials=True,
         allow_methods=["*"],
         allow_headers=["*"],
@@ -56,7 +58,7 @@ def create_app() -> FastAPI:
         return {
             "status": "healthy",
             "message": "Backend Foundation API is running",
-            "version": settings.version
+            "version": settings.version,
         }
 
     return app
@@ -67,10 +69,5 @@ app = create_app()
 
 if __name__ == "__main__":
     import uvicorn
-    uvicorn.run(
-        "main:app",
-        host="0.0.0.0",
-        port=8000,
-        reload=True,
-        reload_dirs=["."]
-    )
+
+    uvicorn.run("main:app", host="0.0.0.0", port=8000, reload=True, reload_dirs=["."])

@@ -1,7 +1,7 @@
 from sqlmodel import SQLModel, Field
 from datetime import datetime
 from uuid import UUID, uuid4
-from typing import Optional, List
+from typing import Optional, List, Dict, Any
 import json
 from sqlalchemy import JSON, Column
 from pgvector.sqlalchemy import Vector
@@ -16,8 +16,8 @@ class ChatQueryBase(SQLModel):
     session_id: Optional[str] = Field(None, description="Identifier for conversation session")
     query_embedding: Optional[List[float]] = Field(None, sa_column=Column(Vector(384)), description="Vector embedding of the query")
     is_off_topic: Optional[bool] = Field(None, description="Result of guardrail check")
-    retrieved_context_ids: Optional[List[UUID]] = Field(None, sa_column=Column(JSON), description="IDs of VectorChunks retrieved")
-    metadata: Optional[dict] = Field(None, description="Additional query metadata", sa_column=Column(JSON))
+    retrieved_context_ids: Optional[List[UUID]] = Field(sa_column=Column(JSON), description="IDs of VectorChunks retrieved")
+    query_metadata: Optional[Dict[str, Any]] = Field(sa_column=Column(JSON), description="Additional query metadata")
 
 
 class ChatQuery(ChatQueryBase, table=True):
@@ -59,4 +59,4 @@ class ChatQueryUpdate(SQLModel):
     query_embedding: Optional[List[float]] = None
     is_off_topic: Optional[bool] = None
     retrieved_context_ids: Optional[List[UUID]] = None
-    metadata: Optional[dict] = None
+    query_metadata: Optional[dict] = None

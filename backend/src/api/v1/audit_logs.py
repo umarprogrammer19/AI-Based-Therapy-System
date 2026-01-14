@@ -9,8 +9,7 @@ from ...models.audit_log import (
     AuditLogRead
 )
 from ...services.audit_service import audit_service
-from ...config.database import get_db_session
-from ...api.deps import get_db_session as get_session
+from ...api.deps import get_db_session
 
 
 router = APIRouter()
@@ -19,7 +18,7 @@ router = APIRouter()
 @router.get("/", response_model=List[AuditLogRead])
 def get_audit_logs(
     *,
-    session: Session = Depends(get_session),
+    session: Session = Depends(get_db_session),
     action: Optional[str] = None,
     resource_type: Optional[str] = None,
     start_date: Optional[str] = None,
@@ -60,7 +59,7 @@ def get_audit_logs(
 @router.get("/{audit_log_id}", response_model=AuditLogRead)
 def get_audit_log(
     *,
-    session: Session = Depends(get_session),
+    session: Session = Depends(get_db_session),
     audit_log_id: str  # Using str to accommodate UUID parsing
 ):
     """
@@ -80,7 +79,7 @@ def get_audit_log(
 @router.get("/actions/{action}", response_model=List[AuditLogRead])
 def get_audit_logs_by_action(
     *,
-    session: Session = Depends(get_session),
+    session: Session = Depends(get_db_session),
     action: str
 ):
     """

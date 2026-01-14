@@ -3,6 +3,7 @@ from datetime import datetime
 from uuid import UUID, uuid4
 from typing import Optional
 import json
+from sqlalchemy import JSON, Column
 
 
 class AuditLogBase(SQLModel):
@@ -14,7 +15,7 @@ class AuditLogBase(SQLModel):
     actor_type: str = Field(..., description="Type of actor - user, system, api")
     resource_type: str = Field(..., description="Type of resource affected")
     resource_id: str = Field(..., description="Identifier of the specific resource")
-    details: dict = Field(..., description="Additional information about the action", sa_column_kwargs={"server_default": "'{}'"})
+    details: dict = Field(..., description="Additional information about the action", sa_column=Column(JSON))
     severity: str = Field(default="info", description="Log level: info, warning, error, critical")
     ip_address: Optional[str] = Field(None, description="IP address of the request, if applicable")
     user_agent: Optional[str] = Field(None, description="User agent string, if applicable")
@@ -29,11 +30,6 @@ class AuditLog(AuditLogBase, table=True):
     id: UUID = Field(default_factory=uuid4, primary_key=True)
     timestamp: datetime = Field(default_factory=datetime.utcnow, description="When the action occurred")
 
-    def __setattr__(self, name, value):
-        # Update the timestamp field automatically if needed
-        if name == 'timestamp' and value is None:
-            super().__setattr__('timestamp', datetime.utcnow())
-        super().__setattr__(name, value)
 
 
 class AuditLogCreate(AuditLogBase):

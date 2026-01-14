@@ -3,6 +3,8 @@ from datetime import datetime
 from uuid import UUID, uuid4
 from typing import Optional
 import json
+from sqlalchemy import JSON, Column
+from sqlalchemy.schema import FetchedValue
 
 
 class KnowledgeDocBase(SQLModel):
@@ -14,7 +16,7 @@ class KnowledgeDocBase(SQLModel):
     source: str = Field(..., description="Where the document originated from")
     content_type: Optional[str] = Field(None, description="MIME type of the document")
     checksum: Optional[str] = Field(None, description="Hash of the file for integrity checking")
-    metadata: Optional[dict] = Field(None, description="Additional document-specific metadata", sa_column_kwargs={"server_default": "NULL"})
+    doc_metadata: Optional[dict] = Field(None, description="Additional document-specific metadata", sa_column=Column(JSON))
 
 
 class KnowledgeDoc(KnowledgeDocBase, table=True):
@@ -28,11 +30,6 @@ class KnowledgeDoc(KnowledgeDocBase, table=True):
     created_at: datetime = Field(default_factory=datetime.utcnow, description="Record creation timestamp")
     updated_at: datetime = Field(default_factory=datetime.utcnow, description="Record update timestamp")
 
-    # Update the updated_at field automatically
-    def __setattr__(self, name, value):
-        if name == 'updated_at':
-            super().__setattr__('updated_at', datetime.utcnow())
-        super().__setattr__(name, value)
 
 
 class KnowledgeDocCreate(KnowledgeDocBase):
@@ -61,4 +58,4 @@ class KnowledgeDocUpdate(SQLModel):
     source: Optional[str] = None
     content_type: Optional[str] = None
     checksum: Optional[str] = None
-    metadata: Optional[dict] = None
+    doc_metadata: Optional[dict] = None

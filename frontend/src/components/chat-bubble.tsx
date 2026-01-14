@@ -28,11 +28,11 @@ export function ChatBubble({ children, variant = 'ai', className }: ChatBubblePr
         )}
       >
         <div className="flex items-start gap-2">
-          {!isUser && <Bot className="h-5 w-5 mt-0.5 flex-shrink-0" />}
-          <div className="whitespace-pre-wrap break-words">
+          {!isUser && <Bot className="h-5 w-5 mt-0.5 shrink-0" />}
+          <div className="whitespace-pre-wrap wrap-break-word">
             {children}
           </div>
-          {isUser && <User className="h-5 w-5 mt-0.5 flex-shrink-0 text-blue-100" />}
+          {isUser && <User className="h-5 w-5 mt-0.5 shrink-0 text-blue-100" />}
         </div>
       </div>
     </div>

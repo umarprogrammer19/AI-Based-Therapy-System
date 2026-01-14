@@ -10,7 +10,8 @@ class Settings(Settings):
 
     # Database settings
     database_url: str = os.getenv(
-        "DATABASE_URL", "postgresql+asyncpg://user:password@localhost/backend_db"
+        "DATABASE_URL",
+        "postgresql+asyncpg://neondb_owner:npg_fIvBAb13GOzn@ep-shiny-mud-adwijmjc-pooler.c-2.us-east-1.aws.neon.tech/neondb?sslmode=require&channel_binding=require",
     )
 
     # API settings

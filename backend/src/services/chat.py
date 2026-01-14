@@ -52,7 +52,7 @@ class ChatService:
             session_id=session_id,
             is_off_topic=None,  # Will be set after guardrail check
             retrieved_context_ids=None,  # Will be set after context retrieval
-            metadata={"processing_stage": "received"}
+            query_metadata={"processing_stage": "received"}
         )
 
         chat_query = ChatQuery.model_validate(chat_query_create)
@@ -66,7 +66,7 @@ class ChatService:
 
             # Update the query record with off-topic status
             chat_query.is_off_topic = is_off_topic
-            chat_query.metadata = {"processing_stage": "guardrail_checked", "is_off_topic": is_off_topic}
+            chat_query.query_metadata = {"processing_stage": "guardrail_checked", "is_off_topic": is_off_topic}
             session.add(chat_query)
             session.commit()
 
@@ -147,7 +147,7 @@ class ChatService:
                 confidence_score=response_result["confidence_score"],
                 used_context_ids=retrieved_context_ids,
                 generation_time_ms=int((datetime.utcnow() - start_time).total_seconds() * 1000),
-                metadata=response_result["metadata"]
+                response_metadata=response_result["metadata"]
             )
 
             chat_response = ChatResponse.model_validate(chat_response_create)
@@ -185,7 +185,7 @@ class ChatService:
                 confidence_score=0.0,
                 used_context_ids=[],
                 generation_time_ms=int((datetime.utcnow() - start_time).total_seconds() * 1000),
-                metadata={"error": str(e)}
+                response_metadata={"error": str(e)}
             )
 
             chat_response = ChatResponse.model_validate(chat_response_create)

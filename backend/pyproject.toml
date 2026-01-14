@@ -26,7 +26,9 @@ dependencies = [
     "transformers>=4.45.2",
     "torch>=2.5.1",
     "huggingface-hub>=0.26.2",
-    "sentence-transformers>=3.1.1"
+    "sentence-transformers>=3.1.1",
+    "httpx>=0.28.1",
+    "pypdf2>=3.0.1",
 ]
 
 [project.optional-dependencies]

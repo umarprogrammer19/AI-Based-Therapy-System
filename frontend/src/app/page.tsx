@@ -1,29 +1,20 @@
 'use client';
 
-import { useChat } from 'ai/react';
-import { useRef, useEffect } from 'react';
+import { useRef, useEffect, useState } from 'react';
 import { Send } from 'lucide-react';
 import { ChatBubble } from '../components/chat-bubble';
 
-export default function Home() {
-  const { messages, input, handleInputChange, handleSubmit, isLoading } = useChat({
-    api: '/api/chat',
-    headers: {
-      'Content-Type': 'application/json',
-    },
-    body: {
-      user_id: 'web_user',
-    },
-    onResponse: (response) => {
-      // Handle the response if needed
-      console.log('Response received:', response);
-    },
-    onError: (error) => {
-      console.error('Chat error:', error);
-      alert('An error occurred while processing your request.');
-    }
-  });
+export interface Message {
+  id: string;
+  role: 'user' | 'assistant';
+  content: string;
+  timestamp: Date;
+}
 
+export default function Home() {
+  const [messages, setMessages] = useState<Message[]>([]);
+  const [input, setInput] = useState('');
+  const [isLoading, setIsLoading] = useState(false);
   const messagesEndRef = useRef<HTMLDivElement>(null);
 
   const scrollToBottom = () => {
@@ -34,9 +25,73 @@ export default function Home() {
     scrollToBottom();
   }, [messages]);
 
+  const sendMessage = async (content: string) => {
+    if (!content.trim() || isLoading) return;
+
+    // Add user message immediately
+    const userMessage: Message = {
+      id: Date.now().toString(),
+      role: 'user',
+      content,
+      timestamp: new Date(),
+    };
+
+    setMessages(prev => [...prev, userMessage]);
+    setInput('');
+    setIsLoading(true);
+
+    try {
+      // Send message directly to backend API
+      const backendBaseUrl = process.env.NEXT_PUBLIC_BACKEND_URL || 'http://localhost:8000';
+      const response = await fetch(`${backendBaseUrl}/api/v1/chat/chat/`, {
+        method: 'POST',
+        headers: {
+          'Content-Type': 'application/json',
+        },
+        body: JSON.stringify({
+          query: content,
+          user_id: 'web_user',
+        }),
+      });
+
+      if (!response.ok) {
+        throw new Error(`HTTP error! status: ${response.status}`);
+      }
+
+      const data = await response.json();
+
+      // Add AI response
+      const aiMessage: Message = {
+        id: Date.now().toString(),
+        role: 'assistant',
+        content: data.message || data.response || 'No response from AI',
+        timestamp: new Date(),
+      };
+
+      setMessages(prev => [...prev, aiMessage]);
+    } catch (error) {
+      console.error('Chat error:', error);
+      alert('An error occurred while processing your request.');
+
+      // Add error message
+      const errorMessage: Message = {
+        id: Date.now().toString(),
+        role: 'assistant',
+        content: 'Sorry, I encountered an error. Please try again.',
+        timestamp: new Date(),
+      };
+
+      setMessages(prev => [...prev, errorMessage]);
+    } finally {
+      setIsLoading(false);
+    }
+  };
+
   const onSubmit = (e: React.FormEvent<HTMLFormElement>) => {
     e.preventDefault();
-    handleSubmit(e);
+    if (input.trim() && !isLoading) {
+      sendMessage(input);
+    }
   };
 
   return (
@@ -111,9 +166,9 @@ export default function Home() {
         >
           <input
             value={input}
-            onChange={handleInputChange}
+            onChange={(e) => setInput(e.target.value)}
             placeholder="Ask about ketamine therapy..."
-            className="flex-1 border border-gray-300 rounded-full px-4 py-3 focus:outline-none focus:ring-2 focus:ring-blue-500 focus:border-transparent"
+            className="flex-1 border border-gray-300 rounded-full px-4 py-3 focus:outline-none focus:ring-2 focus:ring-blue-500 focus:border-transparent text-gray-900 bg-white placeholder-gray-500"
             disabled={isLoading}
           />
           <button

@@ -4,7 +4,7 @@ from typing import Dict, Any, Optional
 from uuid import UUID
 import logging
 
-from ...database.session import get_session
+from ...config.database import get_session
 from ...services.chat import chat_service
 from ...models.chat_query import ChatQueryCreate
 

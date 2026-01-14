@@ -13,9 +13,9 @@ class ChatResponseBase(SQLModel):
     chat_query_id: UUID = Field(..., description="Reference to the associated query")
     response_text: str = Field(..., description="The generated response", min_length=1)
     confidence_score: Optional[float] = Field(None, ge=0.0, le=1.0, description="Confidence in the response")
-    used_context_ids: Optional[List[UUID]] = Field(None, sa_column=Column(JSON), description="IDs of VectorChunks used in response")
+    used_context_ids: Optional[List[UUID]] = Field(sa_column=Column(JSON), description="IDs of VectorChunks used in response")
     generation_time_ms: Optional[int] = Field(None, ge=0, description="Time taken to generate response in milliseconds")
-    metadata: Optional[dict] = Field(None, description="Additional response metadata", sa_column=Column(JSON))
+    response_metadata: Optional[dict] = Field(sa_column=Column(JSON), description="Additional response metadata")
 
 
 class ChatResponse(ChatResponseBase, table=True):
@@ -56,4 +56,4 @@ class ChatResponseUpdate(SQLModel):
     confidence_score: Optional[float] = None
     used_context_ids: Optional[List[UUID]] = None
     generation_time_ms: Optional[int] = None
-    metadata: Optional[dict] = None
+    response_metadata: Optional[dict] = None

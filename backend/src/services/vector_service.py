@@ -103,36 +103,77 @@ class VectorChunkService:
         query_embedding: List[float],
         limit: int = 10,
         knowledge_doc_ids: Optional[List[UUID]] = None
-    ) -> List[VectorChunkRead]:
+    ) -> List[tuple]:
         """
-        Search for similar vector chunks using cosine similarity.
-        This is a simplified implementation that will need to be enhanced with actual pgvector functions.
+        Search for similar vector chunks using pgvector cosine similarity operator.
+
+        Args:
+            session: Database session
+            query_embedding: The embedding vector to search for similar vectors
+            limit: Maximum number of results to return
+            knowledge_doc_ids: Optional list of document IDs to filter by
+
+        Returns:
+            List of tuples containing (VectorChunk, similarity_score)
         """
-        # This is a placeholder implementation
-        # In a real implementation, we'd use pgvector functions like:
-        # SELECT *, embedding <=> %s AS distance FROM vector_chunks ORDER BY distance LIMIT %s
-        # For now, we'll return a basic implementation that finds chunks with closest embedding values
+        from sqlalchemy import text
 
-        statement = select(VectorChunk)
+        # Use raw SQL with pgvector operators since SQLModel doesn't directly support them
+        # Using the cosine distance operator (<=>) which calculates 1 - cosine_similarity
+        base_query = """
+            SELECT *, (embedding <=> :query_embedding) AS distance
+            FROM vector_chunks
+            WHERE TRUE
+        """
 
+        params = {"query_embedding": query_embedding}
+
+        # Add filter for specific knowledge documents if provided
         if knowledge_doc_ids:
-            statement = statement.where(VectorChunk.knowledge_doc_id.in_(knowledge_doc_ids))
+            # Create placeholders for the IN clause
+            doc_placeholders = ", ".join([f":doc_id_{i}" for i in range(len(knowledge_doc_ids))])
+            base_query += f" AND knowledge_doc_id IN ({doc_placeholders})"
 
-        all_chunks = session.exec(statement).all()
+            # Add the document IDs to the params
+            for i, doc_id in enumerate(knowledge_doc_ids):
+                params[f"doc_id_{i}"] = doc_id
 
-        # Calculate cosine similarity for each chunk
-        similarities = []
-        for chunk in all_chunks:
-            # Simple dot product calculation for demonstration
-            # In practice, this should use pgvector's built-in functions
-            similarity = sum(a * b for a, b in zip(query_embedding, chunk.embedding))
-            similarities.append((chunk, similarity))
+        # Order by distance (ascending, so closest matches first) and limit
+        base_query += " ORDER BY distance ASC LIMIT :limit"
+        params["limit"] = limit
 
-        # Sort by similarity (descending) and return top N
-        similarities.sort(key=lambda x: x[1], reverse=True)
-        top_chunks = [chunk for chunk, sim in similarities[:limit]]
+        # Execute the raw SQL query
+        result = session.exec(text(base_query), params)
 
-        return [VectorChunkRead.model_validate(vc) for vc in top_chunks]
+        # Process the results
+        formatted_results = []
+        for row in result:
+            # Convert row to dict to access all columns
+            row_dict = dict(row._mapping)
+
+            # Extract the distance and remove it from the chunk data
+            distance = row_dict.pop('distance')
+
+            # Convert distance to similarity score (cosine similarity = 1 - cosine distance)
+            similarity_score = max(0.0, 1.0 - distance)  # Ensure non-negative
+
+            # Remove the extra columns that are not part of VectorChunk
+            # Only keep the fields that are part of the VectorChunk model
+            allowed_fields = {
+                'id', 'knowledge_doc_id', 'text_content', 'embedding', 'chunk_index',
+                'chunk_metadata', 'similarity_score', 'created_at', 'updated_at'
+            }
+            chunk_data = {k: v for k, v in row_dict.items() if k in allowed_fields}
+
+            # Create VectorChunk object from the data
+            try:
+                chunk = VectorChunk(**chunk_data)
+                formatted_results.append((VectorChunkRead.model_validate(chunk), similarity_score))
+            except Exception:
+                # If there's an issue creating the object, skip this result
+                continue
+
+        return formatted_results
 
 
 # Global instance of the service

@@ -38,9 +38,9 @@
 - [X] T012 [US1] Create chat endpoint POST /api/chat
 - [X] T013 [US1] Implement RAG service for retrieving relevant chunks
 - [X] T014 [US1] Implement chat service with Mistral integration
-- [ ] T015 [US1] Create frontend chat interface component
-- [ ] T016 [US1] Implement streaming responses in frontend
-- [ ] T017 [US1] Add medical disclaimer to frontend
+- [X] T015 [US1] Create frontend chat interface component
+- [X] T016 [US1] Implement streaming responses in frontend
+- [X] T017 [US1] Add medical disclaimer to frontend
 
 ## Phase 4: [US2] Document Upload and Classification
 
@@ -49,16 +49,16 @@
 - [X] T020 [US2] Create document processing pipeline
 - [X] T021 [US2] Implement text extraction for PDF, DOCX, TXT, MD
 - [X] T022 [US2] Implement embedding generation and storage
-- [ ] T023 [US2] Create file upload zone component in frontend
+- [X] T023 [US2] Create file upload zone component in frontend
 
 ## Phase 5: [US3] Admin Knowledge Management
 
 - [X] T024 [US3] Create admin endpoints for document listing
 - [X] T025 [US3] Create admin endpoints for audit logs
 - [X] T026 [US3] Implement admin authentication with API key
-- [ ] T027 [US3] Create knowledge base view component
+- [X] T027 [US3] Create knowledge base view component
 - [ ] T028 [US3] Create audit log view component
-- [ ] T029 [US3] Implement admin panel UI
+- [X] T029 [US3] Implement admin panel UI
 
 ## Phase 6: Polish & Cross-Cutting
 

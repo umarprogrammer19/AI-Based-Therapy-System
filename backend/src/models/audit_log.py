@@ -2,7 +2,6 @@ from sqlmodel import SQLModel, Field
 from datetime import datetime
 from uuid import UUID, uuid4
 from typing import Optional
-import json
 from sqlalchemy import JSON, Column
 
 
@@ -10,53 +9,50 @@ class AuditLogBase(SQLModel):
     """
     Base class for AuditLog with shared attributes.
     """
-    action: str = Field(..., description="Type of action performed")
-    actor_id: str = Field(..., description="Identifier of who performed the action")
-    actor_type: str = Field(..., description="Type of actor - user, system, api")
+    user_id: str = Field(..., description="ID of the user performing the action")
+    action: str = Field(..., description="Action performed (upload, delete, update, etc.)")
     resource_type: str = Field(..., description="Type of resource affected")
-    resource_id: str = Field(..., description="Identifier of the specific resource")
-    details: dict = Field(..., description="Additional information about the action", sa_column=Column(JSON))
-    severity: str = Field(default="info", description="Log level: info, warning, error, critical")
-    ip_address: Optional[str] = Field(None, description="IP address of the request, if applicable")
-    user_agent: Optional[str] = Field(None, description="User agent string, if applicable")
+    resource_id: str = Field(..., description="ID of the resource affected")
+    ip_address: Optional[str] = Field(None, description="IP address of the request")
+    user_agent: Optional[str] = Field(None, description="User agent string")
+    details: Optional[dict] = Field(None, description="Additional details about the action", sa_column=Column(JSON))
 
 
 class AuditLog(AuditLogBase, table=True):
     """
-    AuditLog model tracking system actions and events for monitoring and debugging.
+    AuditLog model storing audit trail for system actions.
     """
     __tablename__ = "audit_logs"
 
-    id: UUID = Field(default_factory=uuid4, primary_key=True)
+    id: UUID = Field(default_factory=uuid4, primary_key=True, description="Unique identifier for the audit log entry")
     timestamp: datetime = Field(default_factory=datetime.utcnow, description="When the action occurred")
-
+    created_at: datetime = Field(default_factory=datetime.utcnow, description="Record creation timestamp")
 
 
 class AuditLogCreate(AuditLogBase):
     """
-    Schema for creating an AuditLog.
+    Schema for creating an AuditLog entry.
     """
     pass
 
 
 class AuditLogRead(AuditLogBase):
     """
-    Schema for reading an AuditLog.
+    Schema for reading an AuditLog entry.
     """
     id: UUID
     timestamp: datetime
+    created_at: datetime
 
 
 class AuditLogUpdate(SQLModel):
     """
-    Schema for updating an AuditLog.
+    Schema for updating an AuditLog entry.
     """
+    user_id: Optional[str] = None
     action: Optional[str] = None
-    actor_id: Optional[str] = None
-    actor_type: Optional[str] = None
     resource_type: Optional[str] = None
     resource_id: Optional[str] = None
-    details: Optional[dict] = None
-    severity: Optional[str] = None
     ip_address: Optional[str] = None
     user_agent: Optional[str] = None
+    details: Optional[dict] = None

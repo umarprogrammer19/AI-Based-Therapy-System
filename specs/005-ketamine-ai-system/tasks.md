@@ -36,8 +36,8 @@
 ## Phase 3: [US1] Ketamine Therapy Information Query
 
 - [X] T012 [US1] Create chat endpoint POST /api/chat
-- [ ] T013 [US1] Implement RAG service for retrieving relevant chunks
-- [ ] T014 [US1] Implement chat service with Mistral integration
+- [X] T013 [US1] Implement RAG service for retrieving relevant chunks
+- [X] T014 [US1] Implement chat service with Mistral integration
 - [ ] T015 [US1] Create frontend chat interface component
 - [ ] T016 [US1] Implement streaming responses in frontend
 - [ ] T017 [US1] Add medical disclaimer to frontend

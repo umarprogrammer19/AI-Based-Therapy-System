@@ -5,14 +5,14 @@ import hashlib
 import tempfile
 import os
 from pathlib import Path
-from ..models.knowledge_doc import KnowledgeDoc, KnowledgeDocCreate
+from ..models.knowledge_doc import KnowledgeDoc, KnowledgeDocCreate, KnowledgeDocUpdate
 from ..models.vector_chunk import VectorChunk, VectorChunkCreate
 from ..services.ai import ai_service
 from ..services.knowledge_service import knowledge_doc_service
 from ..services.vector_service import vector_chunk_service
 
 
-async def process_uploaded_file(file: UploadFile, session: Session) -> KnowledgeDoc:
+async def process_uploaded_file(file: UploadFile, session: AsyncSession) -> KnowledgeDoc:
     """
     Process an uploaded file through the ingestion pipeline:
     1. Extract text from file
@@ -53,22 +53,24 @@ async def process_uploaded_file(file: UploadFile, session: Session) -> Knowledge
             processing_status="classified" if classification_result["is_relevant"] else "skipped"
         )
 
-        knowledge_doc = knowledge_doc_service.create_knowledge_doc(session, knowledge_doc_data)
+        knowledge_doc = await knowledge_doc_service.create_knowledge_doc(session, knowledge_doc_data)
 
         # If document is not relevant, stop processing
         if not classification_result["is_relevant"]:
-            knowledge_doc = knowledge_doc_service.update_knowledge_doc(
+            knowledge_doc_update = KnowledgeDocUpdate(processing_status="skipped")
+            knowledge_doc = await knowledge_doc_service.update_knowledge_doc(
                 session,
                 knowledge_doc.id,
-                {"processing_status": "skipped"}
+                knowledge_doc_update
             )
             return knowledge_doc
 
         # If document is relevant, continue with full processing
-        knowledge_doc = knowledge_doc_service.update_knowledge_doc(
+        knowledge_doc_update_processing = KnowledgeDocUpdate(processing_status="processing")
+        knowledge_doc = await knowledge_doc_service.update_knowledge_doc(
             session,
             knowledge_doc.id,
-            {"processing_status": "processing"}
+            knowledge_doc_update_processing
         )
 
         # Extract full text content
@@ -81,20 +83,24 @@ async def process_uploaded_file(file: UploadFile, session: Session) -> Knowledge
         embeddings = ai_service.generate_embeddings(text_chunks)
 
         # Create VectorChunk records
-        for idx, (chunk_text, embedding) in enumerate(zip(text_chunks, embeddings)):
+        for idx in range(min(len(text_chunks), len(embeddings))):
+            chunk_text = text_chunks[idx]
+            embedding = embeddings[idx]
+
             vector_chunk = VectorChunkCreate(
                 knowledge_doc_id=knowledge_doc.id,
                 text_content=chunk_text,
                 embedding=embedding,
                 chunk_index=idx
             )
-            vector_chunk_service.create_vector_chunk(session, vector_chunk)
+            await vector_chunk_service.create_vector_chunk(session, vector_chunk)
 
         # Update processing status to completed
-        knowledge_doc = knowledge_doc_service.update_knowledge_doc(
+        knowledge_doc_update_completed = KnowledgeDocUpdate(processing_status="completed")
+        knowledge_doc = await knowledge_doc_service.update_knowledge_doc(
             session,
             knowledge_doc.id,
-            {"processing_status": "completed"}
+            knowledge_doc_update_completed
         )
 
         return knowledge_doc
@@ -145,6 +151,9 @@ def chunk_text(text: str, max_chunk_size: int = 500) -> list:
     Split text into chunks of approximately max_chunk_size characters,
     trying to respect sentence boundaries when possible.
     """
+    if not text or len(text.strip()) == 0:
+        return []
+
     chunks = []
     current_pos = 0
 
@@ -154,7 +163,9 @@ def chunk_text(text: str, max_chunk_size: int = 500) -> list:
 
         # If we're at the end of the text, take whatever is left
         if end_pos >= len(text):
-            chunks.append(text[current_pos:])
+            chunk = text[current_pos:].strip()
+            if chunk:
+                chunks.append(chunk)
             break
 
         # Try to find a sentence boundary near the end of our chunk
@@ -172,8 +183,10 @@ def chunk_text(text: str, max_chunk_size: int = 500) -> list:
         if chunk_end <= current_pos:
             chunk_end = end_pos
 
-        # Add the chunk
-        chunks.append(text[current_pos:chunk_end].strip())
+        # Extract the chunk and add if not empty
+        chunk = text[current_pos:chunk_end].strip()
+        if chunk:
+            chunks.append(chunk)
 
         # Move to the next position
         current_pos = chunk_end
@@ -182,5 +195,4 @@ def chunk_text(text: str, max_chunk_size: int = 500) -> list:
         while current_pos < len(text) and text[current_pos].isspace():
             current_pos += 1
 
-    # Filter out any empty chunks
-    return [chunk for chunk in chunks if chunk.strip()]
+    return chunks

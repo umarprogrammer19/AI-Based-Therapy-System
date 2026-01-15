@@ -1,5 +1,6 @@
 from typing import List, Optional
-from sqlmodel import Session, select
+from sqlmodel import select
+from sqlmodel.ext.asyncio.session import AsyncSession
 from uuid import UUID
 from ..models.vector_chunk import VectorChunk, VectorChunkCreate, VectorChunkUpdate, VectorChunkRead
 from ..models.knowledge_doc import KnowledgeDoc
@@ -10,13 +11,14 @@ class VectorChunkService:
     Service class for managing VectorChunk entities.
     """
 
-    def create_vector_chunk(self, session: Session, vector_chunk: VectorChunkCreate) -> VectorChunkRead:
+    async def create_vector_chunk(self, session: AsyncSession, vector_chunk: VectorChunkCreate) -> VectorChunkRead:
         """
         Create a new VectorChunk.
         """
         # Verify that the associated knowledge_doc_id exists
         statement = select(KnowledgeDoc).where(KnowledgeDoc.id == vector_chunk.knowledge_doc_id)
-        knowledge_doc = session.exec(statement).first()
+        result = await session.execute(statement)
+        knowledge_doc = result.first()
         if not knowledge_doc:
             raise ValueError(f"KnowledgeDoc with id {vector_chunk.knowledge_doc_id} does not exist")
 
@@ -26,23 +28,24 @@ class VectorChunkService:
 
         db_vector_chunk = VectorChunk.model_validate(vector_chunk)
         session.add(db_vector_chunk)
-        session.commit()
-        session.refresh(db_vector_chunk)
+        await session.commit()
+        await session.refresh(db_vector_chunk)
         return VectorChunkRead.model_validate(db_vector_chunk)
 
-    def get_vector_chunk(self, session: Session, vector_chunk_id: UUID) -> Optional[VectorChunkRead]:
+    async def get_vector_chunk(self, session: AsyncSession, vector_chunk_id: UUID) -> Optional[VectorChunkRead]:
         """
         Get a VectorChunk by ID.
         """
         statement = select(VectorChunk).where(VectorChunk.id == vector_chunk_id)
-        vector_chunk = session.exec(statement).first()
+        result = await session.execute(statement)
+        vector_chunk = result.first()
         if vector_chunk:
             return VectorChunkRead.model_validate(vector_chunk)
         return None
 
-    def get_vector_chunks(
+    async def get_vector_chunks(
         self,
-        session: Session,
+        session: AsyncSession,
         knowledge_doc_id: Optional[UUID] = None,
         offset: int = 0,
         limit: int = 100
@@ -57,12 +60,13 @@ class VectorChunkService:
 
         statement = statement.offset(offset).limit(limit)
 
-        vector_chunks = session.exec(statement).all()
+        result = await session.execute(statement)
+        vector_chunks = result.all()
         return [VectorChunkRead.model_validate(vc) for vc in vector_chunks]
 
-    def update_vector_chunk(
+    async def update_vector_chunk(
         self,
-        session: Session,
+        session: AsyncSession,
         vector_chunk_id: UUID,
         vector_chunk_update: VectorChunkUpdate
     ) -> Optional[VectorChunkRead]:
@@ -70,7 +74,8 @@ class VectorChunkService:
         Update a VectorChunk.
         """
         statement = select(VectorChunk).where(VectorChunk.id == vector_chunk_id)
-        db_vector_chunk = session.exec(statement).first()
+        result = await session.execute(statement)
+        db_vector_chunk = result.first()
         if not db_vector_chunk:
             return None
 
@@ -80,26 +85,27 @@ class VectorChunkService:
             setattr(db_vector_chunk, field, value)
 
         session.add(db_vector_chunk)
-        session.commit()
-        session.refresh(db_vector_chunk)
+        await session.commit()
+        await session.refresh(db_vector_chunk)
         return VectorChunkRead.model_validate(db_vector_chunk)
 
-    def delete_vector_chunk(self, session: Session, vector_chunk_id: UUID) -> bool:
+    async def delete_vector_chunk(self, session: AsyncSession, vector_chunk_id: UUID) -> bool:
         """
         Delete a VectorChunk by ID.
         """
         statement = select(VectorChunk).where(VectorChunk.id == vector_chunk_id)
-        vector_chunk = session.exec(statement).first()
+        result = await session.execute(statement)
+        vector_chunk = result.first()
         if not vector_chunk:
             return False
 
         session.delete(vector_chunk)
-        session.commit()
+        await session.commit()
         return True
 
-    def search_similar_vectors(
+    async def search_similar_vectors(
         self,
-        session: Session,
+        session: AsyncSession,
         query_embedding: List[float],
         limit: int = 10,
         knowledge_doc_ids: Optional[List[UUID]] = None
@@ -142,12 +148,20 @@ class VectorChunkService:
         base_query += " ORDER BY distance ASC LIMIT :limit"
         params["limit"] = limit
 
+        # Convert the embedding list to the proper format for pgvector
+        # PostgreSQL's vector extension expects arrays in a specific format
+        formatted_params = params.copy()
+        formatted_params["query_embedding"] = "[" + ",".join(map(str, params["query_embedding"])) + "]"
+
         # Execute the raw SQL query
-        result = session.exec(text(base_query), params)
+        result = await session.execute(text(base_query), formatted_params)
+
+        # Fetch all results
+        rows = result.fetchall()
 
         # Process the results
         formatted_results = []
-        for row in result:
+        for row in rows:
             # Convert row to dict to access all columns
             row_dict = dict(row._mapping)
 

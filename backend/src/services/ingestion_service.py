@@ -1,4 +1,5 @@
-from sqlmodel import Session, select
+from sqlmodel.ext.asyncio.session import AsyncSession
+from sqlmodel import select
 from fastapi import UploadFile, HTTPException
 from typing import List
 import uuid
@@ -25,7 +26,7 @@ class IngestionService:
         self.text_extractor = TextExtractor()
         self.embedding_generator = EmbeddingGenerator()
 
-    async def process_upload(self, file: UploadFile, uploader_id: str, session: Session) -> dict:
+    async def process_upload(self, file: UploadFile, uploader_id: str, session: AsyncSession) -> dict:
         """
         Process an uploaded document through the complete ingestion pipeline
 
@@ -44,9 +45,10 @@ class IngestionService:
         checksum = hashlib.sha256(file_content).hexdigest()
 
         # Check if document with same content already exists
-        existing_doc = session.exec(
+        result = await session.execute(
             select(KnowledgeDoc).where(KnowledgeDoc.checksum == checksum)
-        ).first()
+        )
+        existing_doc = result.scalar_one_or_none()
 
         if existing_doc:
             return {
@@ -80,8 +82,8 @@ class IngestionService:
         )
 
         session.add(knowledge_doc)
-        session.commit()
-        session.refresh(knowledge_doc)
+        await session.commit()
+        await session.refresh(knowledge_doc)
 
         # If the document is ketamine-related, process it for RAG
         if is_ketamine_related:
@@ -93,7 +95,8 @@ class IngestionService:
             text_chunks = self.embedding_generator.chunk_text(extracted_text, chunk_size=500)
 
             # Process each chunk
-            for idx, chunk_text in enumerate(text_chunks):
+            for idx in range(len(text_chunks)):
+                chunk_text = text_chunks[idx]
                 # Generate embedding for the chunk
                 embedding = self.embedding_generator.generate_embedding(chunk_text)
 
@@ -113,7 +116,7 @@ class IngestionService:
             # Update final status
             knowledge_doc.processing_status = "completed"
             session.add(knowledge_doc)
-            session.commit()
+            await session.commit()
 
         return {
             "id": str(knowledge_doc.id),

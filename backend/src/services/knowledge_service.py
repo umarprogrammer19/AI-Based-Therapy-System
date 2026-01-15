@@ -1,5 +1,6 @@
 from typing import List, Optional
-from sqlmodel import Session, select
+from sqlmodel import select
+from sqlmodel.ext.asyncio.session import AsyncSession
 from uuid import UUID
 from ..models.knowledge_doc import (
     KnowledgeDoc,
@@ -14,29 +15,30 @@ class KnowledgeDocService:
     Service class for managing KnowledgeDoc entities.
     """
 
-    def create_knowledge_doc(self, session: Session, knowledge_doc: KnowledgeDocCreate) -> KnowledgeDocRead:
+    async def create_knowledge_doc(self, session: AsyncSession, knowledge_doc: KnowledgeDocCreate) -> KnowledgeDocRead:
         """
         Create a new KnowledgeDoc.
         """
         db_knowledge_doc = KnowledgeDoc.model_validate(knowledge_doc)
         session.add(db_knowledge_doc)
-        session.commit()
-        session.refresh(db_knowledge_doc)
+        await session.commit()
+        await session.refresh(db_knowledge_doc)
         return KnowledgeDocRead.model_validate(db_knowledge_doc)
 
-    def get_knowledge_doc(self, session: Session, knowledge_doc_id: UUID) -> Optional[KnowledgeDocRead]:
+    async def get_knowledge_doc(self, session: AsyncSession, knowledge_doc_id: UUID) -> Optional[KnowledgeDocRead]:
         """
         Get a KnowledgeDoc by ID.
         """
         statement = select(KnowledgeDoc).where(KnowledgeDoc.id == knowledge_doc_id)
-        knowledge_doc = session.exec(statement).first()
+        result = await session.execute(statement)
+        knowledge_doc = result.scalar_one_or_none()
         if knowledge_doc:
             return KnowledgeDocRead.model_validate(knowledge_doc)
         return None
 
-    def get_knowledge_docs(
+    async def get_knowledge_docs(
         self,
-        session: Session,
+        session: AsyncSession,
         offset: int = 0,
         limit: int = 100,
         sort_field: Optional[str] = None,
@@ -55,12 +57,13 @@ class KnowledgeDocService:
                 else:
                     statement = statement.order_by(getattr(KnowledgeDoc, sort_field))
 
-        knowledge_docs = session.exec(statement).all()
+        result = await session.execute(statement)
+        knowledge_docs = result.scalars().all()
         return [KnowledgeDocRead.model_validate(kd) for kd in knowledge_docs]
 
-    def update_knowledge_doc(
+    async def update_knowledge_doc(
         self,
-        session: Session,
+        session: AsyncSession,
         knowledge_doc_id: UUID,
         knowledge_doc_update: KnowledgeDocUpdate
     ) -> Optional[KnowledgeDocRead]:
@@ -68,31 +71,34 @@ class KnowledgeDocService:
         Update a KnowledgeDoc.
         """
         statement = select(KnowledgeDoc).where(KnowledgeDoc.id == knowledge_doc_id)
-        db_knowledge_doc = session.exec(statement).first()
+        result = await session.execute(statement)
+        db_knowledge_doc = result.scalar_one_or_none()
         if not db_knowledge_doc:
             return None
 
-        # Update the fields
+        # Update the fields using model_copy or direct assignment
         update_data = knowledge_doc_update.model_dump(exclude_unset=True)
         for field, value in update_data.items():
-            setattr(db_knowledge_doc, field, value)
+            if hasattr(db_knowledge_doc, field) and field not in ['id', 'created_at', 'updated_at', 'upload_date']:
+                setattr(db_knowledge_doc, field, value)
 
         session.add(db_knowledge_doc)
-        session.commit()
-        session.refresh(db_knowledge_doc)
+        await session.commit()
+        await session.refresh(db_knowledge_doc)
         return KnowledgeDocRead.model_validate(db_knowledge_doc)
 
-    def delete_knowledge_doc(self, session: Session, knowledge_doc_id: UUID) -> bool:
+    async def delete_knowledge_doc(self, session: AsyncSession, knowledge_doc_id: UUID) -> bool:
         """
         Delete a KnowledgeDoc by ID.
         """
         statement = select(KnowledgeDoc).where(KnowledgeDoc.id == knowledge_doc_id)
-        knowledge_doc = session.exec(statement).first()
+        result = await session.execute(statement)
+        knowledge_doc = result.scalar_one_or_none()
         if not knowledge_doc:
             return False
 
         session.delete(knowledge_doc)
-        session.commit()
+        await session.commit()
         return True
 
 

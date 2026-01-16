@@ -79,7 +79,7 @@ async def create_tables():
         await conn.run_sync(SQLModel.metadata.create_all)
     logger.info("Database tables created successfully.")
 
-    # Create default admin user after tables are created
+    # Create default admin user after tables are created in a separate session
     await create_default_admin_user()
 
 
@@ -87,28 +87,42 @@ async def create_default_admin_user():
     """
     Create a default admin user if one doesn't exist.
     """
+    import asyncio
     from sqlmodel.ext.asyncio.session import AsyncSession
     from ..services.user import user_service
     from ..models.user import UserCreate, UserRole
     from ..services.auth import auth_service
+    from sqlalchemy.exc import ProgrammingError, OperationalError
 
-    async with AsyncSession(engine) as session:
-        # Check if admin user already exists
-        admin_user = await user_service.get_user_by_username(session, "admin")
-        if not admin_user:
-            logger.info("Creating default admin user...")
+    # Wait a bit to ensure tables are fully available in PostgreSQL
+    await asyncio.sleep(1)
 
-            # Create admin user
-            admin_create = UserCreate(
-                email="admin@ketamine-therapy.ai",
-                username="admin",
-                full_name="Administrator",
-                role=UserRole.ADMIN,
-                password="admin123"  # Default password - should be changed in production
-            )
+    try:
+        async with AsyncSession(engine) as session:
+            # Check if admin user already exists
+            admin_user = await user_service.get_user_by_username(session, "admin")
+            if not admin_user:
+                logger.info("Creating default admin user...")
 
-            await user_service.create_user(session, admin_create)
-            logger.info("Default admin user created successfully.")
+                # Create admin user
+                admin_create = UserCreate(
+                    email="admin@ketamine-therapy.ai",
+                    username="admin",
+                    full_name="Administrator",
+                    role=UserRole.ADMIN,
+                    password="admin123"  # Default password - should be changed in production
+                )
+
+                await user_service.create_user(session, admin_create)
+                logger.info("Default admin user created successfully.")
+    except (ProgrammingError, OperationalError) as e:
+        # If there's a column/table mismatch, log it but continue
+        logger.warning(f"Could not create default admin user due to schema mismatch: {str(e)}")
+        logger.info("Continuing startup process...")
+    except Exception as e:
+        # Log other errors but continue
+        logger.warning(f"Could not create default admin user: {str(e)}")
+        logger.info("Continuing startup process...")
 
 
 async def drop_tables():

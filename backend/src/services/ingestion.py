@@ -41,7 +41,7 @@ async def process_uploaded_file(file: UploadFile, session: AsyncSession, user_id
 
     try:
         # Extract first 500 characters for classification
-        first_500_chars = await extract_first_n_characters(temp_file_path, file.content_type or "", 500)
+        first_500_chars = extract_first_n_characters(temp_file_path, file.content_type or "", 500)
 
         # Classify document relevance
         classification_result = await ai_service.classify_document_relevance(first_500_chars)
@@ -80,7 +80,7 @@ async def process_uploaded_file(file: UploadFile, session: AsyncSession, user_id
         )
 
         # Extract full text content
-        full_text = await extract_full_text(temp_file_path, file.content_type or "")
+        full_text = extract_full_text(temp_file_path, file.content_type or "")
 
         # Split text into chunks of ~500 characters
         text_chunks = chunk_text(full_text, max_chunk_size=500)
@@ -117,15 +117,15 @@ async def process_uploaded_file(file: UploadFile, session: AsyncSession, user_id
             os.unlink(temp_file_path)
 
 
-async def extract_first_n_characters(file_path: str, content_type: str, n: int = 500) -> str:
+def extract_first_n_characters(file_path: str, content_type: str, n: int = 500) -> str:
     """
     Extract the first n characters from a file based on its type.
     """
-    full_text = await extract_full_text(file_path, content_type)
+    full_text = extract_full_text(file_path, content_type)
     return full_text[:n]
 
 
-async def extract_full_text(file_path: str, content_type: str) -> str:
+def extract_full_text(file_path: str, content_type: str) -> str:
     """
     Extract full text content from a file based on its type.
     """

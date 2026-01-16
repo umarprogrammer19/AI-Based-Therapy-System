@@ -4,8 +4,11 @@ import bcrypt
 from jose import JWTError, jwt
 from sqlmodel.ext.asyncio.session import AsyncSession
 from sqlmodel import select
+from fastapi import HTTPException, status, Depends
+from fastapi.security import OAuth2PasswordBearer
 from ..models.user import User, UserLogin, TokenData
 from ..config.settings import settings
+from ..api.async_deps import get_async_db_session
 from uuid import UUID
 
 
@@ -18,6 +21,7 @@ class AuthService:
         self.secret_key = settings.secret_key
         self.algorithm = settings.algorithm
         self.access_token_expire_minutes = settings.access_token_expire_minutes
+        self.oauth2_scheme = OAuth2PasswordBearer(tokenUrl="auth/login")
 
     def verify_password(self, plain_password: str, hashed_password: str) -> bool:
         """
@@ -75,13 +79,33 @@ class AuthService:
         except JWTError:
             return None
 
-    async def get_current_user(self, session: AsyncSession, token_data: TokenData) -> Optional[User]:
+    def get_current_user_dependency(self):
         """
-        Get the current user based on token data.
+        Creates a dependency function that extracts user from token.
         """
-        result = await session.execute(select(User).where(User.id == token_data.user_id))
-        user = result.scalar_one_or_none()
-        return user
+        async def get_current_user(
+            token: str = Depends(self.oauth2_scheme),
+            session: AsyncSession = Depends(get_async_db_session)
+        ) -> User:
+            credentials_exception = HTTPException(
+                status_code=status.HTTP_401_UNAUTHORIZED,
+                detail="Could not validate credentials",
+                headers={"WWW-Authenticate": "Bearer"},
+            )
+
+            token_data = self.decode_token(token)
+            if token_data is None:
+                raise credentials_exception
+
+            result = await session.execute(select(User).where(User.id == token_data.user_id))
+            user = result.scalar_one_or_none()
+
+            if user is None:
+                raise credentials_exception
+
+            return user
+
+        return get_current_user
 
 
 # Global instance

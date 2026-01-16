@@ -1,14 +1,14 @@
+from datetime import datetime, timedelta
 from fastapi import APIRouter, Depends, HTTPException, status
 from sqlmodel.ext.asyncio.session import AsyncSession
-from datetime import timedelta
-from ..services.auth import auth_service
-from ..services.user import user_service
-from ..models.user import UserCreate, UserLogin, Token, UserRead
-from ..api.async_deps import get_async_db_session
-from ..config.settings import settings
+from ...services.auth import auth_service
+from ...services.user import user_service
+from ...models.user import UserCreate, UserLogin, Token, UserRead
+from ...api.async_deps import get_async_db_session
+from ...config.settings import settings
 
 
-router = APIRouter(prefix="/auth", tags=["auth"])
+router = APIRouter(tags=["auth"])
 
 
 @router.post("/register", response_model=UserRead)
@@ -58,9 +58,10 @@ async def login_user(
         )
 
     # Update last login time
-    user.last_login_at = user.last_login_at
+    user.last_login_at = datetime.utcnow()
     session.add(user)
     await session.commit()
+    await session.refresh(user)  # Refresh to ensure all fields are loaded
 
     # Create access token
     access_token_expires = timedelta(minutes=auth_service.access_token_expire_minutes)
@@ -78,7 +79,7 @@ async def login_user(
 
 @router.get("/me", response_model=UserRead)
 async def read_users_me(
-    current_user: UserRead = Depends(auth_service.get_current_user)
+    current_user: UserRead = Depends(auth_service.get_current_user_dependency())
 ):
     """
     Get current user info.

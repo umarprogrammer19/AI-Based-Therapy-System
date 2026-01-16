@@ -2,12 +2,12 @@ from fastapi import APIRouter, Depends, HTTPException, UploadFile, File
 from typing import List, Optional
 from sqlmodel.ext.asyncio.session import AsyncSession
 from uuid import UUID
-from ..models.knowledge_doc import KnowledgeDoc, KnowledgeDocRead
-from ..models.user import User
-from ..services.knowledge_service import knowledge_doc_service
-from ..api.async_deps import get_async_db_session
-from ..services.ingestion import process_uploaded_file
-from ..services.auth import auth_service
+from ...models.knowledge_doc import KnowledgeDoc, KnowledgeDocRead
+from ...models.user import User
+from ...services.knowledge_service import knowledge_doc_service
+from ...api.async_deps import get_async_db_session
+from ...services.ingestion import process_uploaded_file
+from ...services.auth import auth_service
 
 
 router = APIRouter(prefix="/user-docs", tags=["user-docs"])
@@ -16,7 +16,7 @@ router = APIRouter(prefix="/user-docs", tags=["user-docs"])
 @router.post("/upload", response_model=KnowledgeDocRead)
 async def upload_user_document(
     *,
-    current_user: User = Depends(auth_service.get_current_user),
+    current_user: User = Depends(auth_service.get_current_user_dependency()),
     file: UploadFile = File(...),
     session: AsyncSession = Depends(get_async_db_session)
 ):
@@ -66,7 +66,7 @@ async def upload_user_document(
 @router.get("/my-documents", response_model=List[KnowledgeDocRead])
 async def get_my_documents(
     *,
-    current_user: User = Depends(auth_service.get_current_user),
+    current_user: User = Depends(auth_service.get_current_user_dependency()),
     session: AsyncSession = Depends(get_async_db_session),
     limit: int = 100,
     offset: int = 0,
@@ -97,7 +97,7 @@ async def get_my_documents(
 @router.get("/all-documents", response_model=List[KnowledgeDocRead])
 async def get_all_documents(
     *,
-    current_user: User = Depends(auth_service.get_current_user),
+    current_user: User = Depends(auth_service.get_current_user_dependency()),
     session: AsyncSession = Depends(get_async_db_session),
     limit: int = 100,
     offset: int = 0,

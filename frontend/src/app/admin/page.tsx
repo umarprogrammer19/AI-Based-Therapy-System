@@ -1,14 +1,26 @@
 'use client';
 
 import { useState, useRef, useEffect } from 'react';
-import { Upload, FileText, X } from 'lucide-react';
+import { Upload, FileText, X, Filter } from 'lucide-react';
+import { useAuth } from '../../contexts/AuthContext';
 
 export default function AdminPage() {
   const [selectedFile, setSelectedFile] = useState<File | null>(null);
   const [uploadStatus, setUploadStatus] = useState<string | null>(null);
   const [knowledgeDocs, setKnowledgeDocs] = useState<any[]>([]);
   const [loading, setLoading] = useState(false);
+  const [filter, setFilter] = useState<'all' | 'ketamine' | 'non-ketamine'>('all');
+  const [currentUser, setCurrentUser] = useState<any>(null);
   const fileInputRef = useRef<HTMLInputElement>(null);
+
+  const { user, isAuthenticated } = useAuth();
+
+  useEffect(() => {
+    if (isAuthenticated && user) {
+      setCurrentUser(user);
+      fetchKnowledgeDocs();
+    }
+  }, [isAuthenticated, user]);
 
   // Handle file selection
   const handleFileChange = (e: React.ChangeEvent<HTMLInputElement>) => {
@@ -21,7 +33,7 @@ export default function AdminPage() {
 
   // Handle file upload
   const handleUpload = async () => {
-    if (!selectedFile) return;
+    if (!selectedFile || !isAuthenticated) return;
 
     setLoading(true);
     setUploadStatus(null);
@@ -32,10 +44,11 @@ export default function AdminPage() {
 
       // Use the correct API endpoint for admin upload
       const backendBaseUrl = process.env.NEXT_PUBLIC_BACKEND_URL || 'http://localhost:8000';
+      const token = localStorage.getItem('token');
       const response = await fetch(`${backendBaseUrl}/api/admin/upload`, {
         method: 'POST',
         headers: {
-          'Authorization': `Bearer ${process.env.NEXT_PUBLIC_ADMIN_TOKEN || 'secret_key_for_ai_brain_by_@umarprogrammer19!#'}`,
+          'Authorization': `Bearer ${token}`,
         },
         body: formData,
       });
@@ -66,9 +79,15 @@ export default function AdminPage() {
   const fetchKnowledgeDocs = async () => {
     try {
       const backendBaseUrl = process.env.NEXT_PUBLIC_BACKEND_URL || 'http://localhost:8000';
-      const response = await fetch(`${backendBaseUrl}/api/admin/documents`, {
+      const token = localStorage.getItem('token');
+      const params = new URLSearchParams();
+      if (filter !== 'all') {
+        params.append('relevant', String(filter === 'ketamine'));
+      }
+
+      const response = await fetch(`${backendBaseUrl}/api/user-docs/all-documents?${params.toString()}`, {
         headers: {
-          'Authorization': `Bearer ${process.env.NEXT_PUBLIC_ADMIN_TOKEN || 'secret_key_for_ai_brain_by_@umarprogrammer19!#'}`,
+          'Authorization': `Bearer ${token}`,
         },
       });
 
@@ -85,8 +104,51 @@ export default function AdminPage() {
 
   // Load knowledge docs on component mount
   useEffect(() => {
-    fetchKnowledgeDocs();
-  }, []);
+    if (isAuthenticated) {
+      fetchKnowledgeDocs();
+    }
+  }, [filter, isAuthenticated]); // Added filter to the dependency array
+
+  // Filter documents based on the selected filter
+  const filteredDocs = knowledgeDocs.filter(doc => {
+    if (filter === 'ketamine') return doc.relevant === true;
+    if (filter === 'non-ketamine') return doc.relevant === false;
+    return true; // 'all' filter
+  });
+
+  if (!isAuthenticated) {
+    return (
+      <div className="min-h-screen bg-gray-50 flex items-center justify-center">
+        <div className="text-center">
+          <h1 className="text-2xl font-bold text-gray-900 mb-4">Access Denied</h1>
+          <p className="text-gray-600 mb-4">Please log in to access the admin panel</p>
+          <a
+            href="/login"
+            className="inline-block bg-blue-600 hover:bg-blue-700 text-white px-4 py-2 rounded-md transition-colors"
+          >
+            Go to Login
+          </a>
+        </div>
+      </div>
+    );
+  }
+
+  if (user && user.role !== 'admin') {
+    return (
+      <div className="min-h-screen bg-gray-50 flex items-center justify-center">
+        <div className="text-center">
+          <h1 className="text-2xl font-bold text-gray-900 mb-4">Insufficient Permissions</h1>
+          <p className="text-gray-600 mb-4">You need admin privileges to access this page</p>
+          <a
+            href="/"
+            className="inline-block bg-blue-600 hover:bg-blue-700 text-white px-4 py-2 rounded-md transition-colors"
+          >
+            Back to Home
+          </a>
+        </div>
+      </div>
+    );
+  }
 
   return (
     <div className="min-h-screen bg-gray-50 py-8">
@@ -109,7 +171,7 @@ export default function AdminPage() {
                   {selectedFile ? selectedFile.name : 'Click to select a file or drag and drop'}
                 </p>
                 <p className="text-xs text-gray-500 mt-1">
-                  PDF, DOCX, TXT, or MD files (max 10MB)
+                  PDF, DOCX, TXT, or MD files (max 50MB)
                 </p>
 
                 <input
@@ -166,7 +228,7 @@ export default function AdminPage() {
               {uploadStatus && (
                 <div
                   className={`p-3 rounded-md text-sm ${
-                    uploadStatus.startsWith('Success')
+                    uploadStatus.includes('Success') || uploadStatus.includes('successful')
                       ? 'bg-green-50 text-green-800'
                       : 'bg-red-50 text-red-800'
                   }`}
@@ -179,7 +241,21 @@ export default function AdminPage() {
 
           {/* Right Column - Knowledge Table */}
           <div className="bg-white rounded-lg shadow p-6">
-            <h2 className="text-xl font-semibold text-gray-800 mb-4">Knowledge Base</h2>
+            <div className="flex justify-between items-center mb-4">
+              <h2 className="text-xl font-semibold text-gray-800">Knowledge Base</h2>
+              <div className="flex items-center space-x-2">
+                <Filter className="h-4 w-4 text-gray-500" />
+                <select
+                  value={filter}
+                  onChange={(e) => setFilter(e.target.value as any)}
+                  className="border border-gray-300 rounded-md px-2 py-1 text-sm"
+                >
+                  <option value="all">All Documents</option>
+                  <option value="ketamine">Ketamine Related</option>
+                  <option value="non-ketamine">Non-Ketamine</option>
+                </select>
+              </div>
+            </div>
 
             <div className="overflow-x-auto">
               <table className="min-w-full divide-y divide-gray-200">
@@ -197,8 +273,8 @@ export default function AdminPage() {
                   </tr>
                 </thead>
                 <tbody className="bg-white divide-y divide-gray-200">
-                  {knowledgeDocs.length > 0 ? (
-                    knowledgeDocs.map((doc) => (
+                  {filteredDocs.length > 0 ? (
+                    filteredDocs.map((doc) => (
                       <tr key={doc.id}>
                         <td className="px-6 py-4 whitespace-nowrap text-sm font-medium text-gray-900">
                           {doc.filename || doc.fileName}
@@ -206,12 +282,12 @@ export default function AdminPage() {
                         <td className="px-6 py-4 whitespace-nowrap">
                           <span
                             className={`px-2 inline-flex text-xs leading-5 font-semibold rounded-full ${
-                              doc.isKetamineRelevant || doc.relevant
+                              doc.relevant
                                 ? 'bg-green-100 text-green-800'
                                 : 'bg-red-100 text-red-800'
                             }`}
                           >
-                            {doc.isKetamineRelevant || doc.relevant ? 'Active Training' : 'Rejected'}
+                            {doc.relevant ? 'Active Training' : 'Non-Ketamine Content'}
                           </span>
                         </td>
                         <td className="px-6 py-4 whitespace-nowrap text-sm text-gray-500">
@@ -222,7 +298,7 @@ export default function AdminPage() {
                   ) : (
                     <tr>
                       <td colSpan={3} className="px-6 py-4 text-center text-sm text-gray-500">
-                        No documents uploaded yet
+                        No documents found
                       </td>
                     </tr>
                   )}

@@ -2,6 +2,7 @@ from fastapi import UploadFile
 from sqlmodel import Session
 from sqlalchemy.ext.asyncio import AsyncSession
 from typing import Optional
+from uuid import UUID
 import hashlib
 import tempfile
 import os
@@ -13,7 +14,7 @@ from ..services.knowledge_service import knowledge_doc_service
 from ..services.vector_service import vector_chunk_service
 
 
-async def process_uploaded_file(file: UploadFile, session: AsyncSession) -> KnowledgeDoc:
+async def process_uploaded_file(file: UploadFile, session: AsyncSession, user_id: Optional[UUID] = None) -> KnowledgeDoc:
     """
     Process an uploaded file through the ingestion pipeline:
     1. Extract text from file
@@ -29,6 +30,9 @@ async def process_uploaded_file(file: UploadFile, session: AsyncSession) -> Know
 
     # Get file size
     file_size = len(file_content)
+
+    # Set source based on whether it's a user upload or admin upload
+    source = "user_upload" if user_id else "admin_upload"
 
     # Create a temporary file to handle the upload
     with tempfile.NamedTemporaryFile(delete=False, suffix=Path(file.filename).suffix) as temp_file:
@@ -46,7 +50,8 @@ async def process_uploaded_file(file: UploadFile, session: AsyncSession) -> Know
         knowledge_doc_data = KnowledgeDocCreate(
             filename=file.filename,
             file_size=file_size,
-            source="admin_upload",
+            source=source,
+            user_id=user_id,  # Include user_id if provided
             content_type=file.content_type,
             checksum=checksum,
             relevant=classification_result["is_relevant"],

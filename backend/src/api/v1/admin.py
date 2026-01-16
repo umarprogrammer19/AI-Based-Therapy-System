@@ -1,4 +1,4 @@
-from fastapi import APIRouter, Depends, HTTPException, UploadFile, File, Request
+from fastapi import APIRouter, Depends, HTTPException, UploadFile, File
 from typing import List
 from sqlmodel.ext.asyncio.session import AsyncSession
 from uuid import UUID
@@ -8,47 +8,38 @@ from ...models.knowledge_doc import (
     KnowledgeDocRead,
     KnowledgeDocUpdate
 )
+from ...models.user import User, UserRole
 from ...services.knowledge_service import knowledge_doc_service
 from ...api.async_deps import get_async_db_session
 from ...services.ingestion import process_uploaded_file
-from ...config.settings import settings
-import base64
+from ...services.auth import auth_service
 
 
 router = APIRouter()
 
-def authenticate_admin(request: Request):
+
+def require_role(role: UserRole):
     """
-    Basic authentication for admin endpoints.
-    Checks for a hardcoded admin password in headers.
+    Dependency to require a specific user role.
     """
-    admin_password = settings.secret_key  # Use the secret key as admin password
+    async def role_checker(current_user: User = Depends(auth_service.get_current_user)) -> User:
+        if not current_user or current_user.role != role:
+            raise HTTPException(
+                status_code=403,
+                detail="Operation not permitted: Insufficient permissions"
+            )
+        return current_user
 
-    auth_header = request.headers.get("Authorization")
-    if not auth_header or not auth_header.startswith("Bearer "):
-        raise HTTPException(
-            status_code=401,
-            detail="Unauthorized: Missing or invalid Authorization header"
-        )
-
-    token = auth_header.split(" ")[1]
-    if token != admin_password:
-        raise HTTPException(
-            status_code=401,
-            detail="Unauthorized: Invalid admin token"
-        )
-
-    return True
+    return role_checker
 
 
 @router.post("/upload", response_model=KnowledgeDocRead)
 async def upload_document(
     *,
-    request: Request,
+    current_user: User = Depends(require_role(UserRole.ADMIN)),
     file: UploadFile = File(...),
     session: AsyncSession = Depends(get_async_db_session)
 ):
-    authenticate_admin(request)
     """
     Upload a document (PDF/TXT) for processing and classification.
     The document will be classified as relevant to ketamine therapy or not using AI.
@@ -78,8 +69,8 @@ async def upload_document(
         )
 
     try:
-        # Process the uploaded file
-        knowledge_doc = await process_uploaded_file(file, session)
+        # Process the uploaded file (admin uploads don't have a user_id)
+        knowledge_doc = await process_uploaded_file(file, session, user_id=None)
         return knowledge_doc
     except ValueError as e:
         raise HTTPException(status_code=400, detail=str(e))
@@ -90,13 +81,12 @@ async def upload_document(
 @router.get("/documents", response_model=List[KnowledgeDocRead])
 async def get_documents(
     *,
-    request: Request,
+    current_user: User = Depends(require_role(UserRole.ADMIN)),
     session: AsyncSession = Depends(get_async_db_session),
     limit: int = 100,
     offset: int = 0,
     sort: str = None
 ):
-    authenticate_admin(request)
     """
     Get a list of knowledge documents.
     """

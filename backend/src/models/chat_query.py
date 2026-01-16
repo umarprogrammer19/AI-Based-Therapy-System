@@ -12,8 +12,9 @@ class ChatQueryBase(SQLModel):
     Base class for ChatQuery with shared attributes.
     """
     user_id: str = Field(..., description="ID of the user who submitted the query", min_length=1)
+    chat_session_id: Optional[UUID] = Field(default=None, foreign_key="chat_sessions.id", description="ID of the chat session")
     query_text: str = Field(..., description="The user's input query", min_length=1, max_length=1000)
-    session_id: Optional[str] = Field(None, description="Identifier for conversation session")
+    session_id: Optional[str] = Field(None, description="Identifier for conversation session (legacy)")
     query_embedding: Optional[List[float]] = Field(None, sa_column=Column(Vector(384)), description="Vector embedding of the query")
     is_off_topic: Optional[bool] = Field(None, description="Result of guardrail check")
     retrieved_context_ids: Optional[List[UUID]] = Field(sa_column=Column(JSON), description="IDs of VectorChunks retrieved")

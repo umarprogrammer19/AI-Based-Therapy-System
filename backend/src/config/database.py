@@ -69,7 +69,7 @@ async def get_session() -> AsyncGenerator[AsyncSession, None]:
 
 async def create_tables():
     """
-    Create all tables defined in SQLModel models.
+    Create all tables defined in SQLModel models and initialize default admin user.
     """
     logger.info("Creating database tables...")
     async with engine.begin() as conn:
@@ -78,6 +78,37 @@ async def create_tables():
         # Create tables
         await conn.run_sync(SQLModel.metadata.create_all)
     logger.info("Database tables created successfully.")
+
+    # Create default admin user after tables are created
+    await create_default_admin_user()
+
+
+async def create_default_admin_user():
+    """
+    Create a default admin user if one doesn't exist.
+    """
+    from sqlmodel.ext.asyncio.session import AsyncSession
+    from ..services.user import user_service
+    from ..models.user import UserCreate, UserRole
+    from ..services.auth import auth_service
+
+    async with AsyncSession(engine) as session:
+        # Check if admin user already exists
+        admin_user = await user_service.get_user_by_username(session, "admin")
+        if not admin_user:
+            logger.info("Creating default admin user...")
+
+            # Create admin user
+            admin_create = UserCreate(
+                email="admin@ketamine-therapy.ai",
+                username="admin",
+                full_name="Administrator",
+                role=UserRole.ADMIN,
+                password="admin123"  # Default password - should be changed in production
+            )
+
+            await user_service.create_user(session, admin_create)
+            logger.info("Default admin user created successfully.")
 
 
 async def drop_tables():

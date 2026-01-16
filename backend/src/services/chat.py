@@ -23,7 +23,8 @@ class ChatService:
         session: AsyncSession,
         query_text: str,
         user_id: str,
-        session_id: Optional[str] = None
+        session_id: Optional[str] = None,
+        chat_session_id: Optional[UUID] = None
     ) -> Dict[str, Any]:
         """
         Process a chat query through the full RAG pipeline:
@@ -48,6 +49,7 @@ class ChatService:
         # 1. Store the initial query in the database
         chat_query_create = ChatQueryCreate(
             user_id=user_id,
+            chat_session_id=chat_session_id,
             query_text=query_text,
             session_id=session_id,
             is_off_topic=None,  # Will be set after guardrail check

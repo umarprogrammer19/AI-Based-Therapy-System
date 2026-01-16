@@ -42,12 +42,23 @@ class KnowledgeDocService:
         offset: int = 0,
         limit: int = 100,
         sort_field: Optional[str] = None,
-        sort_direction: str = "asc"
+        sort_direction: str = "asc",
+        user_id: Optional[UUID] = None,
+        relevant: Optional[bool] = None
     ) -> List[KnowledgeDocRead]:
         """
-        Get a list of KnowledgeDocs with pagination and optional sorting.
+        Get a list of KnowledgeDocs with pagination, optional sorting, and filters.
         """
-        statement = select(KnowledgeDoc).offset(offset).limit(limit)
+        statement = select(KnowledgeDoc)
+
+        # Apply filters
+        if user_id:
+            statement = statement.where(KnowledgeDoc.user_id == user_id)
+        if relevant is not None:
+            statement = statement.where(KnowledgeDoc.relevant == relevant)
+
+        # Apply pagination
+        statement = statement.offset(offset).limit(limit)
 
         # Add sorting if specified
         if sort_field:

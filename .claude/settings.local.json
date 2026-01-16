@@ -1,0 +1,11 @@
+{
+  "permissions": {
+    "allow": [
+      "Bash(python reset_db.py)",
+      "Bash(uvicorn src.main:app --reload)",
+      "Bash(python -c \"\nimport asyncio\nfrom src.config.database import create_tables\nasync def test\\(\\):\n    try:\n        await create_tables\\(\\)\n        print\\(''Tables created successfully!''\\)\n    except Exception as e:\n        print\\(f''Error creating tables: {e}''\\)\n        import traceback\n        traceback.print_exc\\(\\)\n\nasyncio.run\\(test\\(\\)\\)\n\")",
+      "Bash(timeout 30 uvicorn src.main:app --reload --port 8001)",
+      "Bash(python -c \"\nfrom src.main import app\nimport uvicorn\nprint\\(''Starting server...''\\)\n# Just test that the app can be imported without errors\n\")"
+    ]
+  }
+}

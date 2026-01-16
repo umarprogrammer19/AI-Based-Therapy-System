@@ -30,8 +30,8 @@ def create_app() -> FastAPI:
     Create and configure the FastAPI application.
     """
     app = FastAPI(
-        title=settings.project_name,
-        version=settings.version,
+        title="Ketamine Therapy AI & Learning System",
+        version="1.0.0",
         debug=settings.debug,
         lifespan=lifespan,
     )
@@ -41,7 +41,7 @@ def create_app() -> FastAPI:
         CORSMiddleware,
         allow_origins=[
             "http://localhost:3000"
-        ], 
+        ],
         allow_credentials=True,
         allow_methods=["*"],
         allow_headers=["*"],
@@ -57,7 +57,7 @@ def create_app() -> FastAPI:
         """
         return {
             "status": "healthy",
-            "message": "Backend Foundation API is running",
+            "message": "Ketamine Therapy AI & Learning System is running",
             "version": settings.version,
         }
 
@@ -70,4 +70,4 @@ app = create_app()
 if __name__ == "__main__":
     import uvicorn
 
-    uvicorn.run("main:app", host="0.0.0.0", port=8000, reload=True, reload_dirs=["."])
+    uvicorn.run("src.main:app", host="0.0.0.0", port=8000, reload=True)

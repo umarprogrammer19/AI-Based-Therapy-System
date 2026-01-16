@@ -13,6 +13,7 @@ class KnowledgeDocBase(SQLModel):
     filename: str = Field(..., description="Name of the uploaded file", min_length=1)
     file_size: int = Field(..., description="Size of the file in bytes", ge=0)
     source: str = Field(..., description="Where the document originated from")
+    user_id: Optional[UUID] = Field(default=None, description="ID of the user who uploaded the document")
     content_type: Optional[str] = Field(None, description="MIME type of the document")
     checksum: Optional[str] = Field(None, description="Hash of the file for integrity checking")
     doc_metadata: Optional[dict] = Field(None, description="Additional document-specific metadata", sa_column=Column(JSON))

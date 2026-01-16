@@ -1,11 +1,12 @@
-from fastapi import Depends
-from sqlalchemy.ext.asyncio import AsyncSession
-from ..config.database import get_session
+from sqlmodel import Session
+from ..config.database import engine
+from contextlib import contextmanager
 
 
-async def get_db_session() -> AsyncSession:
+@contextmanager
+def get_db_session():
     """
-    Get database session dependency for API endpoints.
+    Dependency to get a database session.
     """
-    async for session in get_session():
+    with Session(engine) as session:
         yield session

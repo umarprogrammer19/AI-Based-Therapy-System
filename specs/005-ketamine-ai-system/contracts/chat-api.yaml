@@ -1,0 +1,70 @@
+openapi: 3.0.0
+info:
+  title: Ketamine AI Chat API
+  version: 1.0.0
+  description: API for ketamine therapy information chat interface
+
+paths:
+  /api/chat:
+    post:
+      summary: Submit a chat query and receive a response
+      operationId: chat
+      requestBody:
+        required: true
+        content:
+          application/json:
+            schema:
+              type: object
+              properties:
+                message:
+                  type: string
+                  description: The user's query message
+                  example: "What are the benefits of ketamine therapy?"
+                sessionId:
+                  type: string
+                  description: Optional session ID for continued conversation
+                  example: "sess_12345"
+              required:
+                - message
+      responses:
+        '200':
+          description: Successful response with chat reply
+          content:
+            application/json:
+              schema:
+                type: object
+                properties:
+                  id:
+                    type: string
+                    example: "msg_67890"
+                  message:
+                    type: string
+                    example: "Ketamine therapy has shown promising results..."
+                  sessionId:
+                    type: string
+                    example: "sess_12345"
+                  sources:
+                    type: array
+                    items:
+                      type: string
+                    example: ["doc_abc123", "doc_def456"]
+        '400':
+          description: Invalid request
+        '500':
+          description: Internal server error
+
+components:
+  schemas:
+    ChatMessage:
+      type: object
+      properties:
+        id:
+          type: string
+        message:
+          type: string
+        role:
+          type: string
+          enum: [user, assistant]
+        timestamp:
+          type: string
+          format: date-time

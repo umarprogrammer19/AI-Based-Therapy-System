@@ -14,6 +14,10 @@ from src.models.knowledge_doc import KnowledgeDoc
 from src.models.vector_chunk import VectorChunk
 from src.models.audit_log import AuditLog
 from src.models.upload_session import UploadSession
+from src.models.chat_session import ChatSession
+from src.models.chat_query import ChatQuery
+from src.models.user import User
+from src.models.chat_response import ChatResponse
 from sqlmodel import SQLModel
 
 

@@ -1,6 +1,6 @@
 from fastapi import APIRouter, Depends, HTTPException, UploadFile, File
 from typing import List
-from sqlmodel import Session
+from sqlmodel.ext.asyncio.session import AsyncSession
 from uuid import UUID
 from ...models.knowledge_doc import (
     KnowledgeDoc,
@@ -9,7 +9,7 @@ from ...models.knowledge_doc import (
     KnowledgeDocUpdate
 )
 from ...services.knowledge_service import knowledge_doc_service
-from ...api.deps import get_db_session
+from ...api.async_deps import get_async_db_session
 from ...services.ingestion import process_uploaded_file
 
 
@@ -17,24 +17,24 @@ router = APIRouter()
 
 
 @router.post("/", response_model=KnowledgeDocRead)
-def create_knowledge_doc(
+async def create_knowledge_doc(
     *,
-    session: Session = Depends(get_db_session),
+    session: AsyncSession = Depends(get_async_db_session),
     knowledge_doc: KnowledgeDocCreate
 ):
     """
     Create a new knowledge document.
     """
     try:
-        return knowledge_doc_service.create_knowledge_doc(session, knowledge_doc)
+        return await knowledge_doc_service.create_knowledge_doc(session, knowledge_doc)
     except Exception as e:
         raise HTTPException(status_code=409, detail=f"Document already exists: {str(e)}")
 
 
 @router.get("/{knowledge_doc_id}", response_model=KnowledgeDocRead)
-def get_knowledge_doc(
+async def get_knowledge_doc(
     *,
-    session: Session = Depends(get_db_session),
+    session: AsyncSession = Depends(get_async_db_session),
     knowledge_doc_id: str  # Using str to accommodate UUID parsing
 ):
     """
@@ -47,16 +47,16 @@ def get_knowledge_doc(
     except ValueError:
         raise HTTPException(status_code=400, detail="Invalid UUID format")
 
-    knowledge_doc = knowledge_doc_service.get_knowledge_doc(session, uuid_obj)
+    knowledge_doc = await knowledge_doc_service.get_knowledge_doc(session, uuid_obj)
     if not knowledge_doc:
         raise HTTPException(status_code=404, detail="Knowledge document not found")
     return knowledge_doc
 
 
 @router.get("/", response_model=List[KnowledgeDocRead])
-def get_knowledge_docs(
+async def get_knowledge_docs(
     *,
-    session: Session = Depends(get_db_session),
+    session: AsyncSession = Depends(get_async_db_session),
     limit: int = 100,
     offset: int = 0,
     sort: str = None
@@ -73,7 +73,7 @@ def get_knowledge_docs(
         if len(parts) > 1:
             sort_direction = parts[1]
 
-    return knowledge_doc_service.get_knowledge_docs(
+    return await knowledge_doc_service.get_knowledge_docs(
         session=session,
         offset=offset,
         limit=limit,
@@ -83,9 +83,9 @@ def get_knowledge_docs(
 
 
 @router.put("/{knowledge_doc_id}", response_model=KnowledgeDocRead)
-def update_knowledge_doc(
+async def update_knowledge_doc(
     *,
-    session: Session = Depends(get_db_session),
+    session: AsyncSession = Depends(get_async_db_session),
     knowledge_doc_id: str,  # Using str to accommodate UUID parsing
     knowledge_doc_update: KnowledgeDocUpdate
 ):
@@ -99,7 +99,7 @@ def update_knowledge_doc(
     except ValueError:
         raise HTTPException(status_code=400, detail="Invalid UUID format")
 
-    updated_knowledge_doc = knowledge_doc_service.update_knowledge_doc(
+    updated_knowledge_doc = await knowledge_doc_service.update_knowledge_doc(
         session, uuid_obj, knowledge_doc_update
     )
     if not updated_knowledge_doc:
@@ -107,48 +107,12 @@ def update_knowledge_doc(
     return updated_knowledge_doc
 
 
-@router.post("/admin/upload", response_model=KnowledgeDocRead)
-def upload_document(
-    *,
-    file: UploadFile = File(...),
-    session: Session = Depends(get_db_session)
-):
-    """
-    Upload a document (PDF/TXT) for processing and classification.
-    The document will be classified as relevant to ketamine therapy or not using AI.
-    """
-    from uuid import UUID
-
-    # Validate file type
-    allowed_types = {"application/pdf", "text/plain", "text/txt"}
-    if file.content_type not in allowed_types:
-        raise HTTPException(
-            status_code=400,
-            detail=f"File type not allowed. Allowed types: {', '.join(allowed_types)}"
-        )
-
-    # Validate file size (max 50MB)
-    max_size = 50 * 1024 * 1024  # 50MB in bytes
-    if hasattr(file, 'size') and file.size and file.size > max_size:
-        raise HTTPException(
-            status_code=400,
-            detail=f"File too large. Maximum size is {max_size} bytes"
-        )
-
-    try:
-        # Process the uploaded file
-        knowledge_doc = process_uploaded_file(file, session)
-        return knowledge_doc
-    except ValueError as e:
-        raise HTTPException(status_code=400, detail=str(e))
-    except Exception as e:
-        raise HTTPException(status_code=500, detail=f"Error processing file: {str(e)}")
 
 
 @router.delete("/{knowledge_doc_id}")
-def delete_knowledge_doc(
+async def delete_knowledge_doc(
     *,
-    session: Session = Depends(get_db_session),
+    session: AsyncSession = Depends(get_async_db_session),
     knowledge_doc_id: str  # Using str to accommodate UUID parsing
 ):
     """
@@ -159,7 +123,7 @@ def delete_knowledge_doc(
     except ValueError:
         raise HTTPException(status_code=400, detail="Invalid UUID format")
 
-    deleted = knowledge_doc_service.delete_knowledge_doc(session, uuid_obj)
+    deleted = await knowledge_doc_service.delete_knowledge_doc(session, uuid_obj)
     if not deleted:
         raise HTTPException(status_code=404, detail="Knowledge document not found")
     return {"message": "Knowledge document deleted successfully"}

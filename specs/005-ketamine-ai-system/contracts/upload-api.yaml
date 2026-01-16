@@ -1,0 +1,62 @@
+openapi: 3.0.0
+info:
+  title: Ketamine AI Upload API
+  version: 1.0.0
+  description: API for uploading documents for classification and storage
+
+paths:
+  /api/upload:
+    post:
+      summary: Upload a document for classification and processing
+      operationId: uploadDocument
+      security:
+        - apiKey: []
+      requestBody:
+        required: true
+        content:
+          multipart/form-data:
+            schema:
+              type: object
+              properties:
+                file:
+                  type: string
+                  format: binary
+                  description: The document file to upload (PDF, DOCX, TXT, MD)
+      responses:
+        '200':
+          description: Document successfully uploaded and processing started
+          content:
+            application/json:
+              schema:
+                type: object
+                properties:
+                  id:
+                    type: string
+                    example: "doc_12345"
+                  filename:
+                    type: string
+                    example: "ketamine-study.pdf"
+                  status:
+                    type: string
+                    example: "processing"
+                  isKetamineRelevant:
+                    type: boolean
+                    example: true
+                  message:
+                    type: string
+                    example: "Document received and being processed"
+        '400':
+          description: Invalid file type or format
+        '401':
+          description: Unauthorized - API key required
+        '413':
+          description: File too large
+        '500':
+          description: Internal server error
+
+components:
+  securitySchemes:
+    apiKey:
+      type: apiKey
+      in: header
+      name: X-API-Key

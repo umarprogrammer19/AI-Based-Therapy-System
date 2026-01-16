@@ -1,7 +1,7 @@
 from typing import Dict, Any, List, Optional
 from uuid import UUID
 import asyncio
-from sqlmodel import Session
+from sqlmodel.ext.asyncio.session import AsyncSession
 from ..models.chat_query import ChatQuery, ChatQueryCreate
 from ..models.chat_response import ChatResponse, ChatResponseCreate
 from ..services.ai import ai_service
@@ -20,10 +20,11 @@ class ChatService:
 
     async def process_chat_query(
         self,
-        session: Session,
+        session: AsyncSession,
         query_text: str,
         user_id: str,
-        session_id: Optional[str] = None
+        session_id: Optional[str] = None,
+        chat_session_id: Optional[UUID] = None
     ) -> Dict[str, Any]:
         """
         Process a chat query through the full RAG pipeline:
@@ -48,6 +49,7 @@ class ChatService:
         # 1. Store the initial query in the database
         chat_query_create = ChatQueryCreate(
             user_id=user_id,
+            chat_session_id=chat_session_id,
             query_text=query_text,
             session_id=session_id,
             is_off_topic=None,  # Will be set after guardrail check
@@ -57,8 +59,11 @@ class ChatService:
 
         chat_query = ChatQuery.model_validate(chat_query_create)
         session.add(chat_query)
-        session.commit()
-        session.refresh(chat_query)
+        await session.commit()
+        await session.refresh(chat_query)
+
+        # Store the query ID to avoid lazy loading issues later
+        query_id = chat_query.id
 
         try:
             # 2. Check if the query is off-topic using guardrails
@@ -68,7 +73,7 @@ class ChatService:
             chat_query.is_off_topic = is_off_topic
             chat_query.query_metadata = {"processing_stage": "guardrail_checked", "is_off_topic": is_off_topic}
             session.add(chat_query)
-            session.commit()
+            await session.commit()
 
             # If the query is off-topic, return a predefined response
             if is_off_topic:
@@ -80,22 +85,26 @@ class ChatService:
                 )
 
                 chat_response_create = ChatResponseCreate(
-                    chat_query_id=chat_query.id,
+                    chat_query_id=query_id,
                     response_text=response_text,
                     confidence_score=0.9,  # High confidence in off-topic response
                     used_context_ids=[],
                     generation_time_ms=int((datetime.utcnow() - start_time).total_seconds() * 1000),
-                    metadata={"response_type": "off_topic_guardrail"}
+                    response_metadata={"response_type": "off_topic_guardrail"}
                 )
 
                 chat_response = ChatResponse.model_validate(chat_response_create)
                 session.add(chat_response)
-                session.commit()
+                await session.commit()
+                await session.refresh(chat_response)
+
+                # Store the response ID to avoid lazy loading issues later
+                response_id = chat_response.id
 
                 return {
                     "message": response_text,
-                    "query_id": str(chat_query.id),
-                    "response_id": str(chat_response.id),
+                    "query_id": str(query_id),
+                    "response_id": str(response_id),
                     "confidence": 0.9,
                     "context_used": [],
                     "is_off_topic": True,
@@ -108,10 +117,10 @@ class ChatService:
             # Update the query record with the embedding
             chat_query.query_embedding = query_embedding
             session.add(chat_query)
-            session.commit()
+            await session.commit()
 
             # 4. Retrieve relevant context from vector database
-            context_chunks_with_scores = self.vector_service.search_similar_vectors(
+            context_chunks_with_scores = await self.vector_service.search_similar_vectors(
                 session=session,
                 query_embedding=query_embedding,
                 limit=5  # Retrieve top 5 most similar chunks
@@ -132,7 +141,7 @@ class ChatService:
             # Update the query record with retrieved context IDs
             chat_query.retrieved_context_ids = retrieved_context_ids
             session.add(chat_query)
-            session.commit()
+            await session.commit()
 
             # 5. Generate response using AI with context
             response_result = await self.ai_service.generate_response_with_context(
@@ -142,7 +151,7 @@ class ChatService:
 
             # 6. Store the response in the database
             chat_response_create = ChatResponseCreate(
-                chat_query_id=chat_query.id,
+                chat_query_id=query_id,
                 response_text=response_result["response_text"],
                 confidence_score=response_result["confidence_score"],
                 used_context_ids=retrieved_context_ids,
@@ -152,7 +161,11 @@ class ChatService:
 
             chat_response = ChatResponse.model_validate(chat_response_create)
             session.add(chat_response)
-            session.commit()
+            await session.commit()
+            await session.refresh(chat_response)
+
+            # Store the response ID to avoid lazy loading issues later
+            response_id = chat_response.id
 
             # Prepare the response for the API
             context_used = [
@@ -166,8 +179,8 @@ class ChatService:
 
             return {
                 "message": response_result["response_text"],
-                "query_id": str(chat_query.id),
-                "response_id": str(chat_response.id),
+                "query_id": str(query_id),
+                "response_id": str(response_id),
                 "confidence": response_result["confidence_score"],
                 "context_used": context_used,
                 "is_off_topic": False,
@@ -178,19 +191,28 @@ class ChatService:
             # Handle any errors during processing
             error_message = f"An error occurred while processing your query: {str(e)}"
 
-            # Store error response in the database
-            chat_response_create = ChatResponseCreate(
-                chat_query_id=chat_query.id,
-                response_text=error_message,
-                confidence_score=0.0,
-                used_context_ids=[],
-                generation_time_ms=int((datetime.utcnow() - start_time).total_seconds() * 1000),
-                response_metadata={"error": str(e)}
-            )
+            # Store error response in the database - use the query_id if available
+            try:
+                chat_query_id_to_use = query_id
+            except NameError:
+                # If query_id wasn't set (error happened before initial commit), we need to save the query first
+                # This shouldn't happen since query_id is set right after the first commit, but just in case
+                chat_query_id_to_use = chat_query.id if hasattr(chat_query, 'id') and chat_query.id else None
 
-            chat_response = ChatResponse.model_validate(chat_response_create)
-            session.add(chat_response)
-            session.commit()
+            if chat_query_id_to_use:
+                chat_response_create = ChatResponseCreate(
+                    chat_query_id=chat_query_id_to_use,
+                    response_text=error_message,
+                    confidence_score=0.0,
+                    used_context_ids=[],
+                    generation_time_ms=int((datetime.utcnow() - start_time).total_seconds() * 1000),
+                    response_metadata={"error": str(e)}
+                )
+
+                chat_response = ChatResponse.model_validate(chat_response_create)
+                session.add(chat_response)
+                await session.commit()
+                await session.refresh(chat_response)
 
             raise e
 
@@ -259,7 +281,7 @@ class ChatService:
 
     async def get_chat_history(
         self,
-        session: Session,
+        session: AsyncSession,
         user_id: str,
         session_id: Optional[str] = None,
         limit: int = 10
@@ -286,13 +308,15 @@ class ChatService:
 
         query_stmt = query_stmt.order_by(ChatQuery.timestamp.desc()).limit(limit)
 
-        queries = session.exec(query_stmt).all()
+        result = await session.execute(query_stmt)
+        queries = result.all()
 
         history = []
         for query in queries:
             # Get the corresponding response if it exists
             response_stmt = select(ChatResponse).where(ChatResponse.chat_query_id == query.id)
-            response = session.exec(response_stmt).first()
+            result = await session.execute(response_stmt)
+            response = result.first()
 
             history_item = {
                 "query_id": str(query.id),

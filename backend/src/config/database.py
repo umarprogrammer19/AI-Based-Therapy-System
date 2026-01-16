@@ -14,27 +14,28 @@ logger = logging.getLogger(__name__)
 import urllib.parse
 
 def create_engine_with_ssl():
+    # The issue is with SSL parameters in the URL causing problems with asyncpg
+    # asyncpg handles SSL automatically when using the postgresql+asyncpg scheme
+    # Let's strip out problematic SSL parameters from the URL
+
     parsed_url = urllib.parse.urlparse(str(settings.database_url))
     query_params = urllib.parse.parse_qs(parsed_url.query)
 
-    # Remove SSL-related parameters from URL since asyncpg handles them differently
-    ssl_params = {'sslmode', 'sslcert', 'sslkey', 'sslrootcert', 'channel_binding'}
-    filtered_params = {k: v for k, v in query_params.items() if k.lower() not in ssl_params}
+    # Remove SSL-related parameters that cause issues with asyncpg
+    # These parameters are often not compatible with asyncpg via SQLAlchemy
+    ssl_params_to_remove = {'sslmode', 'channel_binding', 'sslcert', 'sslkey', 'sslrootcert'}
+    safe_params = {k: v for k, v in query_params.items() if k.lower() not in ssl_params_to_remove}
 
-    # Reconstruct URL without SSL parameters
+    # Reconstruct URL without SSL parameters that cause issues
     base_url = f"{parsed_url.scheme}://{parsed_url.netloc}{parsed_url.path}"
-    if filtered_params:
-        new_query = urllib.parse.urlencode(filtered_params, doseq=True)
+    if safe_params:
+        new_query = urllib.parse.urlencode(safe_params, doseq=True)
         clean_url = f"{base_url}?{new_query}" if new_query else base_url
     else:
         clean_url = base_url
 
-    # Handle SSL configuration for asyncpg
+    # Connect args for asyncpg - minimal settings to avoid conflicts
     connect_args = {}
-    if 'sslmode' in query_params:
-        sslmode = query_params['sslmode'][0]
-        # For asyncpg, we might need to handle SSL differently
-        # This depends on the specific requirements
 
     return create_async_engine(
         clean_url,

@@ -15,7 +15,7 @@ class Settings(Settings):
     )
 
     # API settings
-    api_v1_prefix: str = "/api/v1"
+    api_v1_prefix: str = "/api"
     debug: bool = os.getenv("DEBUG", "False").lower() == "true"
     project_name: str = "Backend Foundation API"
     version: str = "0.1.0"

@@ -88,7 +88,7 @@ class ChatService:
                     confidence_score=0.9,  # High confidence in off-topic response
                     used_context_ids=[],
                     generation_time_ms=int((datetime.utcnow() - start_time).total_seconds() * 1000),
-                    metadata={"response_type": "off_topic_guardrail"}
+                    response_metadata={"response_type": "off_topic_guardrail"}
                 )
 
                 chat_response = ChatResponse.model_validate(chat_response_create)

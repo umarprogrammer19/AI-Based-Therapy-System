@@ -11,7 +11,7 @@ from ...models.chat_query import ChatQueryCreate
 # Configure logger
 logger = logging.getLogger(__name__)
 
-router = APIRouter(prefix="/chat", tags=["chat"])
+router = APIRouter(tags=["chat"])
 
 
 @router.post("/", response_model=Dict[str, Any])

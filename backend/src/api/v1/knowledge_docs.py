@@ -107,48 +107,6 @@ async def update_knowledge_doc(
     return updated_knowledge_doc
 
 
-@router.post("/admin/upload", response_model=KnowledgeDocRead)
-async def upload_document(
-    *,
-    file: UploadFile = File(...),
-    session: AsyncSession = Depends(get_async_db_session)
-):
-    """
-    Upload a document (PDF/TXT) for processing and classification.
-    The document will be classified as relevant to ketamine therapy or not using AI.
-    """
-    from uuid import UUID
-
-    # Validate file type
-    allowed_types = {
-        "application/pdf",
-        "text/plain",
-        "text/txt",
-        "application/msword",  # .doc
-        "application/vnd.openxmlformats-officedocument.wordprocessingml.document"  # .docx
-    }
-    if file.content_type not in allowed_types:
-        raise HTTPException(
-            status_code=400,
-            detail=f"File type not allowed. Allowed types: {', '.join(allowed_types)}"
-        )
-
-    # Validate file size (max 50MB)
-    max_size = 50 * 1024 * 1024  # 50MB in bytes
-    if hasattr(file, 'size') and file.size and file.size > max_size:
-        raise HTTPException(
-            status_code=400,
-            detail=f"File too large. Maximum size is {max_size} bytes"
-        )
-
-    try:
-        # Process the uploaded file
-        knowledge_doc = await process_uploaded_file(file, session)
-        return knowledge_doc
-    except ValueError as e:
-        raise HTTPException(status_code=400, detail=str(e))
-    except Exception as e:
-        raise HTTPException(status_code=500, detail=f"Error processing file: {str(e)}")
 
 
 @router.delete("/{knowledge_doc_id}")

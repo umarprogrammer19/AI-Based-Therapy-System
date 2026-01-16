@@ -1,6 +1,6 @@
-from fastapi import APIRouter, Depends, HTTPException, UploadFile, File
+from fastapi import APIRouter, Depends, HTTPException, UploadFile, File, Request
 from typing import List
-from sqlmodel import Session
+from sqlmodel.ext.asyncio.session import AsyncSession
 from uuid import UUID
 from ...models.knowledge_doc import (
     KnowledgeDoc,
@@ -9,19 +9,46 @@ from ...models.knowledge_doc import (
     KnowledgeDocUpdate
 )
 from ...services.knowledge_service import knowledge_doc_service
-from ...api.deps import get_db_session
+from ...api.async_deps import get_async_db_session
 from ...services.ingestion import process_uploaded_file
+from ...config.settings import settings
+import base64
 
 
 router = APIRouter()
 
+def authenticate_admin(request: Request):
+    """
+    Basic authentication for admin endpoints.
+    Checks for a hardcoded admin password in headers.
+    """
+    admin_password = settings.secret_key  # Use the secret key as admin password
+
+    auth_header = request.headers.get("Authorization")
+    if not auth_header or not auth_header.startswith("Bearer "):
+        raise HTTPException(
+            status_code=401,
+            detail="Unauthorized: Missing or invalid Authorization header"
+        )
+
+    token = auth_header.split(" ")[1]
+    if token != admin_password:
+        raise HTTPException(
+            status_code=401,
+            detail="Unauthorized: Invalid admin token"
+        )
+
+    return True
+
 
 @router.post("/upload", response_model=KnowledgeDocRead)
-def upload_document(
+async def upload_document(
     *,
+    request: Request,
     file: UploadFile = File(...),
-    session: Session = Depends(get_db_session)
+    session: AsyncSession = Depends(get_async_db_session)
 ):
+    authenticate_admin(request)
     """
     Upload a document (PDF/TXT) for processing and classification.
     The document will be classified as relevant to ketamine therapy or not using AI.
@@ -29,7 +56,13 @@ def upload_document(
     from uuid import UUID
 
     # Validate file type
-    allowed_types = {"application/pdf", "text/plain", "text/txt"}
+    allowed_types = {
+        "application/pdf",
+        "text/plain",
+        "text/txt",
+        "application/msword",  # .doc
+        "application/vnd.openxmlformats-officedocument.wordprocessingml.document"  # .docx
+    }
     if file.content_type not in allowed_types:
         raise HTTPException(
             status_code=400,
@@ -46,7 +79,7 @@ def upload_document(
 
     try:
         # Process the uploaded file
-        knowledge_doc = process_uploaded_file(file, session)
+        knowledge_doc = await process_uploaded_file(file, session)
         return knowledge_doc
     except ValueError as e:
         raise HTTPException(status_code=400, detail=str(e))
@@ -55,13 +88,15 @@ def upload_document(
 
 
 @router.get("/documents", response_model=List[KnowledgeDocRead])
-def get_documents(
+async def get_documents(
     *,
-    session: Session = Depends(get_db_session),
+    request: Request,
+    session: AsyncSession = Depends(get_async_db_session),
     limit: int = 100,
     offset: int = 0,
     sort: str = None
 ):
+    authenticate_admin(request)
     """
     Get a list of knowledge documents.
     """
@@ -74,7 +109,7 @@ def get_documents(
         if len(parts) > 1:
             sort_direction = parts[1]
 
-    return knowledge_doc_service.get_knowledge_docs(
+    return await knowledge_doc_service.get_knowledge_docs(
         session=session,
         offset=offset,
         limit=limit,

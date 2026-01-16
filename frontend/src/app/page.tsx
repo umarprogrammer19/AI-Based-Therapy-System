@@ -43,7 +43,7 @@ export default function Home() {
     try {
       // Send message directly to backend API
       const backendBaseUrl = process.env.NEXT_PUBLIC_BACKEND_URL || 'http://localhost:8000';
-      const response = await fetch(`${backendBaseUrl}/api/v1/chat/chat/`, {
+      const response = await fetch(`${backendBaseUrl}/api/chat/`, {
         method: 'POST',
         headers: {
           'Content-Type': 'application/json',

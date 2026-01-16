@@ -1,6 +1,6 @@
 'use client';
 
-import { useState, useRef } from 'react';
+import { useState, useRef, useEffect } from 'react';
 import { Upload, FileText, X } from 'lucide-react';
 
 export default function AdminPage() {
@@ -34,13 +34,16 @@ export default function AdminPage() {
       const backendBaseUrl = process.env.NEXT_PUBLIC_BACKEND_URL || 'http://localhost:8000';
       const response = await fetch(`${backendBaseUrl}/api/admin/upload`, {
         method: 'POST',
+        headers: {
+          'Authorization': `Bearer ${process.env.NEXT_PUBLIC_ADMIN_TOKEN || 'secret_key_for_ai_brain_by_@umarprogrammer19!#'}`,
+        },
         body: formData,
       });
 
       const result = await response.json();
 
       if (response.ok) {
-        setUploadStatus(`Success: ${result.message}`);
+        setUploadStatus(`Success: Document uploaded successfully`);
         // Refresh the knowledge docs list
         fetchKnowledgeDocs();
         // Reset selected file
@@ -63,11 +66,15 @@ export default function AdminPage() {
   const fetchKnowledgeDocs = async () => {
     try {
       const backendBaseUrl = process.env.NEXT_PUBLIC_BACKEND_URL || 'http://localhost:8000';
-      const response = await fetch(`${backendBaseUrl}/api/admin/documents`);
+      const response = await fetch(`${backendBaseUrl}/api/admin/documents`, {
+        headers: {
+          'Authorization': `Bearer ${process.env.NEXT_PUBLIC_ADMIN_TOKEN || 'secret_key_for_ai_brain_by_@umarprogrammer19!#'}`,
+        },
+      });
 
       if (response.ok) {
         const data = await response.json();
-        setKnowledgeDocs(data.documents || []);
+        setKnowledgeDocs(data || []);
       } else {
         console.error('Failed to fetch documents');
       }
@@ -77,9 +84,9 @@ export default function AdminPage() {
   };
 
   // Load knowledge docs on component mount
-  useState(() => {
+  useEffect(() => {
     fetchKnowledgeDocs();
-  });
+  }, []);
 
   return (
     <div className="min-h-screen bg-gray-50 py-8">
@@ -194,7 +201,7 @@ export default function AdminPage() {
                     knowledgeDocs.map((doc) => (
                       <tr key={doc.id}>
                         <td className="px-6 py-4 whitespace-nowrap text-sm font-medium text-gray-900">
-                          {doc.filename}
+                          {doc.filename || doc.fileName}
                         </td>
                         <td className="px-6 py-4 whitespace-nowrap">
                           <span
@@ -208,7 +215,7 @@ export default function AdminPage() {
                           </span>
                         </td>
                         <td className="px-6 py-4 whitespace-nowrap text-sm text-gray-500">
-                          {new Date(doc.uploadedAt || doc.created_at).toLocaleDateString()}
+                          {new Date(doc.uploadDate || doc.created_at || doc.upload_date).toLocaleDateString()}
                         </td>
                       </tr>
                     ))

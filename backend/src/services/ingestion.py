@@ -1,5 +1,6 @@
 from fastapi import UploadFile
 from sqlmodel import Session
+from sqlalchemy.ext.asyncio import AsyncSession
 from typing import Optional
 import hashlib
 import tempfile
@@ -84,12 +85,12 @@ async def process_uploaded_file(file: UploadFile, session: AsyncSession) -> Know
 
         # Create VectorChunk records
         for idx in range(min(len(text_chunks), len(embeddings))):
-            chunk_text = text_chunks[idx]
+            chunk_text_content = text_chunks[idx]
             embedding = embeddings[idx]
 
             vector_chunk = VectorChunkCreate(
                 knowledge_doc_id=knowledge_doc.id,
-                text_content=chunk_text,
+                text_content=chunk_text_content,
                 embedding=embedding,
                 chunk_index=idx
             )

@@ -49,18 +49,34 @@ export default function Home() {
     try {
       // Send message directly to backend API
       const backendBaseUrl = process.env.NEXT_PUBLIC_BACKEND_URL || 'http://localhost:8000';
-      const token = localStorage.getItem('token');
 
-      const response = await fetch(`${backendBaseUrl}/api/chat/`, {
-        method: 'POST',
-        headers: {
-          'Content-Type': 'application/json',
-          'Authorization': `Bearer ${token}`,
-        },
-        body: JSON.stringify({
-          query: content,
-        }),
-      });
+      // For anonymous users, use a simpler request without auth
+      let response;
+      if (isAuthenticated) {
+        const token = localStorage.getItem('token');
+        response = await fetch(`${backendBaseUrl}/api/chat/`, {
+          method: 'POST',
+          headers: {
+            'Content-Type': 'application/json',
+            'Authorization': `Bearer ${token}`,
+          },
+          body: JSON.stringify({
+            query: content,
+          }),
+        });
+      } else {
+        // Anonymous chat request (this will work if the backend allows it)
+        response = await fetch(`${backendBaseUrl}/api/chat/`, {
+          method: 'POST',
+          headers: {
+            'Content-Type': 'application/json',
+          },
+          body: JSON.stringify({
+            query: content,
+            user_id: 'anonymous'
+          }),
+        });
+      }
 
       if (!response.ok) {
         throw new Error(`HTTP error! status: ${response.status}`);
@@ -315,21 +331,14 @@ export default function Home() {
           <input
             value={input}
             onChange={(e) => setInput(e.target.value)}
-            placeholder={isAuthenticated
-              ? "Ask about ketamine therapy..."
-              : "Please log in to ask questions..."
-            }
-            className={`flex-1 border border-gray-300 rounded-full px-4 py-3 focus:outline-none focus:ring-2 focus:ring-blue-500 focus:border-transparent text-gray-900 bg-white placeholder-gray-500 ${
-              !isAuthenticated ? 'bg-gray-100' : ''
-            }`}
-            disabled={isLoading || !isAuthenticated}
+            placeholder="Ask about ketamine therapy..."
+            className="flex-1 border border-gray-300 rounded-full px-4 py-3 focus:outline-none focus:ring-2 focus:ring-blue-500 focus:border-transparent text-gray-900 bg-white placeholder-gray-500"
+            disabled={isLoading}
           />
           <button
             type="submit"
-            disabled={isLoading || !input.trim() || !isAuthenticated}
-            className={`bg-blue-500 text-white rounded-full p-3 hover:bg-blue-600 focus:outline-none focus:ring-2 focus:ring-blue-500 focus:ring-offset-2 disabled:opacity-50 disabled:cursor-not-allowed transition-colors ${
-              !isAuthenticated ? 'bg-gray-400 cursor-not-allowed' : ''
-            }`}
+            disabled={isLoading || !input.trim()}
+            className="bg-blue-500 text-white rounded-full p-3 hover:bg-blue-600 focus:outline-none focus:ring-2 focus:ring-blue-500 focus:ring-offset-2 disabled:opacity-50 disabled:cursor-not-allowed transition-colors"
           >
             <Send className="h-5 w-5" />
           </button>

@@ -4,11 +4,11 @@ from typing import Dict, Any, Optional
 from uuid import UUID
 import logging
 
-from ..config.database import get_session
-from ..services.chat import chat_service
-from ..models.chat_query import ChatQueryCreate
-from ..models.user import User
-from ..services.auth import auth_service
+from ...config.database import get_session
+from ...services.chat import chat_service
+from ...models.chat_query import ChatQueryCreate
+from ...models.user import User
+from ...services.auth import auth_service
 
 # Configure logger
 logger = logging.getLogger(__name__)

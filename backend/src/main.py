@@ -3,7 +3,6 @@ from fastapi import FastAPI
 from fastapi.middleware.cors import CORSMiddleware
 from .config.database import create_tables
 from .api.v1.router import router as v1_router
-from .api.admin import router as admin_router
 from .config.settings import settings
 import logging
 
@@ -53,7 +52,6 @@ def create_app() -> FastAPI:
 
     # Include API routers
     app.include_router(v1_router, prefix=settings.api_v1_prefix)
-    app.include_router(admin_router, prefix="/api")
 
     @app.get("/health")
     async def health_check():

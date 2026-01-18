@@ -89,16 +89,11 @@ async def admin_upload_document(
         )
 
     try:
-        # Process the uploaded file
-        knowledge_doc = await process_uploaded_file(file, session)
-
-        # Update the document to include the user_id (admin uploading)
-        knowledge_doc.user_id = current_user.id
-        session.add(knowledge_doc)
-        await session.commit()
-        await session.refresh(knowledge_doc)
+        # Process the uploaded file with user_id
+        knowledge_doc = await process_uploaded_file(file, session, user_id=current_user.id)
 
         return knowledge_doc
+
     except ValueError as e:
         raise HTTPException(status_code=400, detail=str(e))
     except Exception as e:

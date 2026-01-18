@@ -10,7 +10,7 @@ from ...services.ingestion import process_uploaded_file
 from ...services.auth import auth_service
 
 
-router = APIRouter(prefix="/user-docs", tags=["user-docs"])
+router = APIRouter(tags=["user-docs"])
 
 
 @router.post("/upload", response_model=KnowledgeDocRead)
@@ -48,13 +48,7 @@ async def upload_user_document(
 
     try:
         # Process the uploaded file with user_id
-        knowledge_doc = await process_uploaded_file(file, session)
-
-        # Update the document to include the user_id
-        knowledge_doc.user_id = current_user.id
-        session.add(knowledge_doc)
-        await session.commit()
-        await session.refresh(knowledge_doc)
+        knowledge_doc = await process_uploaded_file(file, session, user_id=current_user.id)
 
         return knowledge_doc
     except ValueError as e:

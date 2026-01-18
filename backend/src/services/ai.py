@@ -50,7 +50,7 @@ class AIService:
             "raw_response": text_sample[:200]
         }
 
-    def generate_embeddings(self, texts: List[str]) -> List[List[float]]:
+    async def generate_embeddings(self, texts: List[str]) -> List[List[float]]:
         """
         Generate mock embeddings for text chunks (in production, this would use proper embedding models).
         This is a simplified version for demonstration purposes.

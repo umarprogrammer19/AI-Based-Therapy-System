@@ -41,7 +41,7 @@ async def process_uploaded_file(file: UploadFile, session: AsyncSession, user_id
 
     try:
         # Extract first 500 characters for classification
-        first_500_chars = extract_first_n_characters(temp_file_path, file.content_type or "", 500)
+        first_500_chars = await extract_first_n_characters_async(temp_file_path, file.content_type or "", 500)
 
         # Classify document relevance
         classification_result = await ai_service.classify_document_relevance(first_500_chars)
@@ -80,13 +80,13 @@ async def process_uploaded_file(file: UploadFile, session: AsyncSession, user_id
         )
 
         # Extract full text content
-        full_text = extract_full_text(temp_file_path, file.content_type or "")
+        full_text = await extract_full_text_async(temp_file_path, file.content_type or "")
 
         # Split text into chunks of ~500 characters
         text_chunks = chunk_text(full_text, max_chunk_size=500)
 
         # Generate embeddings for each chunk
-        embeddings = ai_service.generate_embeddings(text_chunks)
+        embeddings = await ai_service.generate_embeddings(text_chunks)
 
         # Create VectorChunk records
         for idx in range(min(len(text_chunks), len(embeddings))):
@@ -117,12 +117,53 @@ async def process_uploaded_file(file: UploadFile, session: AsyncSession, user_id
             os.unlink(temp_file_path)
 
 
+async def extract_first_n_characters_async(file_path: str, content_type: str, n: int = 500) -> str:
+    """
+    Extract the first n characters from a file based on its type.
+    """
+    full_text = await extract_full_text_async(file_path, content_type)
+    return full_text[:n]
+
+
 def extract_first_n_characters(file_path: str, content_type: str, n: int = 500) -> str:
     """
     Extract the first n characters from a file based on its type.
     """
     full_text = extract_full_text(file_path, content_type)
     return full_text[:n]
+
+
+async def extract_full_text_async(file_path: str, content_type: str) -> str:
+    """
+    Extract full text content from a file based on its type.
+    """
+    import asyncio
+
+    def _read_file():
+        if content_type == "text/plain" or content_type == "text/txt" or file_path.endswith(('.txt', '.text')):
+            # Handle plain text files
+            with open(file_path, 'r', encoding='utf-8') as f:
+                return f.read()
+
+        else:
+            # For other file types (PDF, DOCX), return a mock content
+            # In a real implementation, we would process these files properly
+            if file_path.endswith('.pdf'):
+                return f"Mock content extracted from PDF file: {os.path.basename(file_path)}. This is a placeholder for actual PDF content extraction."
+            elif file_path.endswith('.docx'):
+                return f"Mock content extracted from DOCX file: {os.path.basename(file_path)}. This is a placeholder for actual DOCX content extraction."
+            else:
+                # Default to text file
+                try:
+                    with open(file_path, 'r', encoding='utf-8') as f:
+                        return f.read()
+                except UnicodeDecodeError:
+                    # If UTF-8 fails, try with latin-1
+                    with open(file_path, 'r', encoding='latin-1') as f:
+                        return f.read()
+
+    # Run the blocking file operation in a thread pool
+    return await asyncio.to_thread(_read_file)
 
 
 def extract_full_text(file_path: str, content_type: str) -> str:

@@ -18,7 +18,7 @@ class VectorChunkService:
         # Verify that the associated knowledge_doc_id exists
         statement = select(KnowledgeDoc).where(KnowledgeDoc.id == vector_chunk.knowledge_doc_id)
         result = await session.execute(statement)
-        knowledge_doc = result.first()
+        knowledge_doc = result.scalar_one_or_none()
         if not knowledge_doc:
             raise ValueError(f"KnowledgeDoc with id {vector_chunk.knowledge_doc_id} does not exist")
 
@@ -26,6 +26,7 @@ class VectorChunkService:
         if len(vector_chunk.embedding) != 384:
             raise ValueError(f"Embedding must have exactly 384 dimensions, got {len(vector_chunk.embedding)}")
 
+        # Create the vector chunk object - using model_validate to convert from Pydantic to SQLModel
         db_vector_chunk = VectorChunk.model_validate(vector_chunk)
         session.add(db_vector_chunk)
         await session.commit()
@@ -38,7 +39,7 @@ class VectorChunkService:
         """
         statement = select(VectorChunk).where(VectorChunk.id == vector_chunk_id)
         result = await session.execute(statement)
-        vector_chunk = result.first()
+        vector_chunk = result.scalar_one_or_none()
         if vector_chunk:
             return VectorChunkRead.model_validate(vector_chunk)
         return None
@@ -61,7 +62,7 @@ class VectorChunkService:
         statement = statement.offset(offset).limit(limit)
 
         result = await session.execute(statement)
-        vector_chunks = result.all()
+        vector_chunks = result.scalars().all()
         return [VectorChunkRead.model_validate(vc) for vc in vector_chunks]
 
     async def update_vector_chunk(
@@ -75,7 +76,7 @@ class VectorChunkService:
         """
         statement = select(VectorChunk).where(VectorChunk.id == vector_chunk_id)
         result = await session.execute(statement)
-        db_vector_chunk = result.first()
+        db_vector_chunk = result.scalar_one_or_none()
         if not db_vector_chunk:
             return None
 
@@ -95,7 +96,7 @@ class VectorChunkService:
         """
         statement = select(VectorChunk).where(VectorChunk.id == vector_chunk_id)
         result = await session.execute(statement)
-        vector_chunk = result.first()
+        vector_chunk = result.scalar_one_or_none()
         if not vector_chunk:
             return False
 

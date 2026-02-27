@@ -6,7 +6,7 @@ import os
 app = FastAPI(title="AI Therapy System Orchestrator")
 
 # Initialize Hugging Face Client for Mistral Large
-# Ensure you have your HF_TOKEN set in your environment variables
+# Ensure HF_TOKEN set in your environment variables
 HF_TOKEN = os.getenv("HF_TOKEN")
 client = InferenceClient(model="mistralai/Mistral-Large-Instruct-2407", token=HF_TOKEN)
 

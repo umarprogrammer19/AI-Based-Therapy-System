@@ -5,7 +5,7 @@ client = InferenceClient(model="mistralai/Mistral-Large-Instruct-2407", token=se
 
 def detect_intent(message: str) -> str:
     """
-    Determines if the conversation content is explicitly about ketamine therapy [cite: 18]
+    Determines if the conversation content is explicitly about ketamine therapy
     or general mental health[cite: 21].
     """
     system_prompt = (

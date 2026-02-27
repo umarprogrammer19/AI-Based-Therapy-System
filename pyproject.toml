@@ -8,5 +8,6 @@ dependencies = [
     "fastapi>=0.133.1",
     "huggingface-hub>=1.5.0",
     "pydantic>=2.12.5",
+    "pydantic-settings>=2.13.1",
     "uvicorn>=0.41.0",
 ]

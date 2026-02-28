@@ -5,7 +5,7 @@ from typing import Optional
 class ChatRequest(BaseModel):
     user_id: str
     message: str
-    persona: str = "Calm therapist"  # Applies the selected identity/persona
+    persona: str = "Calm therapist"
 
 
 class ChatResponse(BaseModel):

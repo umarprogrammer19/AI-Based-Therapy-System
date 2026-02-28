@@ -4,7 +4,6 @@ from src.core.config import settings
 
 app = FastAPI(title=settings.PROJECT_NAME)
 
-# Include Routers
 app.include_router(chat.router, prefix="/api/chat", tags=["Chat"])
 
 

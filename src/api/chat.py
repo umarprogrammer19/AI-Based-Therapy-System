@@ -23,7 +23,7 @@ async def chat_endpoint(request: ChatRequest):
             reply = generate_general_response(request.message, request.persona)
             model_used = "General Therapy Model"
 
-        # The logic to flag relevant conversation segments as potential training data and store them in the pending dataset [cite: 31] will be added here.
+        # The logic to flag relevant conversation segments as potential training data and store them in the pending dataset will be added here.
 
         return ChatResponse(
             routed_to=model_used,

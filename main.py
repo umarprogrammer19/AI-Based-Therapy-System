@@ -6,7 +6,7 @@ app = FastAPI(title=settings.PROJECT_NAME)
 
 app.include_router(chat.router, prefix="/api/chat", tags=["Chat"])
 
-
+# Get Request
 @app.get("/")
 def read_root():
     return {"status": "AI Therapy Backend is running"}
